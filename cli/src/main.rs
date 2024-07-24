@@ -1,4 +1,4 @@
-use api::Word;
+use api::types::Word;
 fn main() {
     let word = Word::new(
         "Плохое слово".to_owned(),
