@@ -6,11 +6,12 @@ pub mod types {
     use serde::{Serialize, Deserialize};
     use serde_json::*;
 
+    #[doc = "Trait, that should be implemented in all objects, that is used for translating words with API's. This enables the State pattern"]
     pub trait TranslatorApi {
-        fn translate_word_with_tag(word: String, tag: String) -> Word;
+        fn translate_word_with_tag(word: Word) -> Word;
     }
     
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Default)]
     #[doc = "Middleware representation between json and api model"]
     pub struct Word {
         pub word: String,
@@ -27,8 +28,14 @@ pub mod types {
             };
         }
     
+        #[doc = "Serializing structure into JSON for build step"]
         pub fn into_json(&self) -> Result<String> {
             serde_json::to_string(&self)
+        }
+
+        #[doc = "Deserializing JSON into Structure for internal functionality"]
+        pub fn from_json(json_data: String) -> Result<Word> {
+            return serde_json::from_str(&json_data)
         }
     }
     
@@ -41,6 +48,8 @@ pub mod types {
             )
         }
     }
+
+
 }
 
 
