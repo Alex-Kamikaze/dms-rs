@@ -1,0 +1,11 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2021"
+authors = ["Alexander Karavaichik <sashagameac@gmail.com>"]
+description = "CLI Utility for the auto-translator project"
+
+[dependencies]
+clap = { version = "4.5.10", features = ["derive"] }
+api = { path = "../api"}
+tokio = { version = "*", features = ["full"]}
