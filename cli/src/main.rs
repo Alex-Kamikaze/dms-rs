@@ -12,5 +12,5 @@ use args::cli_args::Cli;
 #[tokio::main]
 async fn main() {
     let args = Cli::parse();
-    println!("Utility launched successfully");
+    println!("{:?}", args);
 }
