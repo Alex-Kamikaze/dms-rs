@@ -71,11 +71,14 @@ pub mod web_api {
     use serde::Serialize;
     use serde_json::Value;
 
+    #[derive(Debug, Clone)]
+    #[doc = "Struct that represents the caller for LibreTranslate API"]
     pub struct LibreTranslateApi {
         pub host: String,
     }
 
     #[derive(Serialize, Deserialize)]
+    #[doc = "Struct that represents JSON that is sent to the LibreTranslator API"]
     struct LibreTranslateJsonRequest {
         #[serde(rename = "q")]
         pub word: String,
