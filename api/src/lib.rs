@@ -129,7 +129,8 @@ pub mod web_api {
                 .await?
                 .text()
                 .await?;
-            let translated_word: HashMap<String, Value> = serde_json::from_str(&result).expect("Error occured while parsing");
+            let translated_word: HashMap<String, Value> =
+                serde_json::from_str(&result).expect("Error occured while parsing");
             return Ok(Word::new(
                 translated_word["translatedText"].to_string(),
                 word.tag,
@@ -142,6 +143,7 @@ pub mod web_api {
 mod manual_translation {
     use std::fs::read_to_string;
 
+    #[doc = "Reads JSON from given file"]
     fn parse_json_dictionary(file_name: &str) -> Result<serde_json::Value, serde_json::Error> {
         serde_json::from_str(&read_to_string(file_name).unwrap())
     }
@@ -149,8 +151,8 @@ mod manual_translation {
 
 #[cfg(test)]
 mod tests {
-    use crate::web_api::LibreTranslateApi;
     use super::types::*;
+    use crate::web_api::LibreTranslateApi;
 
     #[test]
     fn test_word_constructor_works() {
@@ -168,14 +170,18 @@ mod tests {
         let api = LibreTranslateApi::new("http://127.0.0.1:5000".to_owned());
         let test_word = Word::new("Привет".to_owned(), "greeting".to_owned(), "ru".to_owned());
         let test_word_clone = test_word.clone();
-        let result = api.translate_word_with_tag(test_word, "en".to_owned()).await;
+        let result = api
+            .translate_word_with_tag(test_word, "en".to_owned())
+            .await;
         match result {
             Ok(word) => {
                 assert_eq!(word.word.trim().replace("\"", ""), "Hey");
                 assert_eq!(word.language, "en");
                 assert_eq!(word.tag, test_word_clone.tag)
-            },
-            Err(err) => { println!("{}", err)},
-        }     
+            }
+            Err(err) => {
+                println!("{}", err)
+            }
+        }
     }
 }
