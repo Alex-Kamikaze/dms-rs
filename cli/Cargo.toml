@@ -9,3 +9,4 @@ description = "CLI Utility for the auto-translator project"
 clap = { version = "4.5.10", features = ["derive"] }
 api = { path = "../api"}
 tokio = { version = "*", features = ["full"]}
+reqwest = "0.12.5"

@@ -12,7 +12,6 @@ pub mod cli_args {
     #[derive(Debug, Subcommand)]
     pub enum CliSubcommands {
         #[clap(subcommand)]
-        #[doc = "Translate feature with two variants: Auto or Manual"]
         /// Translate text from dictionaries
         Translate(TranslateType)
     }
@@ -21,11 +20,9 @@ pub mod cli_args {
     #[derive(Debug, Subcommand)]
     #[doc = "Subcommand for providing type of translation"]
     pub enum TranslateType {
-        #[doc = "Manual translation variant"]
         /// Create an empty dictionaries for manual translation
         Manual(ManualTranslationArgs),
-
-        #[doc = "Auto translation variant"]
+        
         /// Generate empty dictionaries and fill them with translated words from basic dictionaries by translation API's
         Auto(AutoTranslationArgs)
     }
