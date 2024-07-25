@@ -14,7 +14,7 @@ pub mod types {
         ) -> Result<Word, reqwest::Error>;
     }
 
-    #[derive(Serialize, Deserialize, Default)]
+    #[derive(Serialize, Deserialize, Default, Clone)]
     #[doc = "Middleware representation between json and api model"]
     pub struct Word {
         pub word: String,
@@ -123,13 +123,13 @@ pub mod web_api {
                 "text".to_owned(),
             );
             let result = client
-                .get("{&self.host}/translate")
+                .post(format!("{}/translate", self.host))
                 .json(&json_data)
                 .send()
                 .await?
                 .text()
                 .await?;
-            let translated_word: HashMap<String, Value> = serde_json::from_str(&result).unwrap();
+            let translated_word: HashMap<String, Value> = serde_json::from_str(&result).expect("Error occured while parsing");
             return Ok(Word::new(
                 translated_word["translatedText"].to_string(),
                 word.tag,
@@ -139,8 +139,17 @@ pub mod web_api {
     }
 }
 
+mod manual_translation {
+    use std::fs::read_to_string;
+
+    fn parse_json_dictionary(file_name: &str) -> Result<serde_json::Value, serde_json::Error> {
+        serde_json::from_str(&read_to_string(file_name).unwrap())
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::web_api::LibreTranslateApi;
     use super::types::*;
 
     #[test]
@@ -154,8 +163,19 @@ mod tests {
         assert_eq!(word.tag, "offensive_word");
     }
 
-    #[test]
-    fn test_libre_translator_on_localhost_works() {
-        todo!()
+    #[tokio::test]
+    async fn test_libre_translator_on_localhost_works() {
+        let api = LibreTranslateApi::new("http://127.0.0.1:5000".to_owned());
+        let test_word = Word::new("Привет".to_owned(), "greeting".to_owned(), "ru".to_owned());
+        let test_word_clone = test_word.clone();
+        let result = api.translate_word_with_tag(test_word, "en".to_owned()).await;
+        match result {
+            Ok(word) => {
+                assert_eq!(word.word.trim().replace("\"", ""), "Hey");
+                assert_eq!(word.language, "en");
+                assert_eq!(word.tag, test_word_clone.tag)
+            },
+            Err(err) => { println!("{}", err)},
+        }     
     }
 }

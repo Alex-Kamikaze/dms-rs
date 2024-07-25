@@ -16,8 +16,8 @@ async fn main() -> Result<(), reqwest::Error>{
     match args.subcommand {
         Translate(translate_type) => {
             match translate_type {
-                TranslateType::Manual(arguments) => { println!("Generating empty dictionaries for languages {:?}", arguments.languages)},
-                TranslateType::Auto(arguments) => { println!("Using auto translation for languages {:?} with {} API", arguments.languages, arguments.translator_api)},
+                TranslateType::Manual(arguments) => { todo!() },
+                TranslateType::Auto(arguments) => { todo!() },
             }
         }
     }
