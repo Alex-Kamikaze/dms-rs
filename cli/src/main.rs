@@ -1,9 +1,16 @@
+#![allow(unused_imports)]
+
 use api::types::Word;
-fn main() {
-    let word = Word::new(
-        "Плохое слово".to_owned(),
-        "offensive_word".to_owned(),
-        "RUS".to_owned(),
-    );
-    println!("{word}");
+use clap::Parser;
+use tokio::*;
+
+mod args;
+use args::cli_args::Cli;
+
+
+
+#[tokio::main]
+async fn main() {
+    let args = Cli::parse();
+    println!("Utility launched successfully");
 }
