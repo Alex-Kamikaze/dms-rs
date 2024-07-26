@@ -172,7 +172,7 @@ pub mod parser {
         for file in dictionary_list_dir {
             if let Ok(entry) = file {
                 let filename = entry.file_name().into_string().unwrap();
-                if filename.contains(lang) {
+                if filename.contains(&("dictionary-".to_owned() + lang)) {
                     return Some(filename);
                 }
             }
@@ -183,9 +183,18 @@ pub mod parser {
 
     #[doc = "Parses json file into Vec<Word>"]
     //TODO: Replace with correct error type
-    pub fn parse_json_into_words(file_name: &str) -> Result<Vec<Word>, ()> {
-        let json = read_json_dictionary(file_name);
-        let language = "ru".to_owned(); //TODO: Replace with getting language from name of dictionary (dictionary-ru.json -> ru)
+    pub fn parse_json_into_words(dictionary_dir: &str, language: &str) -> Result<Vec<Word>, ()> {
+        let json;
+        let filename = get_dictionary_by_lang(dictionary_dir, language);
+        if filename.is_some() {
+            let path = format!("{}/", dictionary_dir.to_owned()) + &filename.unwrap();
+            println!("{}", &path);
+            json = read_json_dictionary(&path);
+        }
+        else {
+            return Err(())
+        }
+
         match json {
             Ok(data) => {
                 let keys = get_tags_from_dictionary(&data);
@@ -194,10 +203,11 @@ pub mod parser {
                         return Ok(tags
                             .into_iter()
                             .map(|tag| {
+                                let tag_data = data.get(&tag).unwrap();
                                 Word::new(
-                                    data.get("word").unwrap().to_string(),
+                                    tag_data.get("word").unwrap().to_string(),
                                     tag,
-                                    language.clone(),
+                                    language.to_owned()
                                 )
                             })
                             .collect::<Vec<Word>>());
@@ -208,6 +218,22 @@ pub mod parser {
             Err(_) => return Err(()),
         }
     }
+
+    #[doc = "Returns path to the basic dictionary"]
+    pub fn get_basic_dictionary(dictionary_dir: &str) -> Option<String> {
+        let dictionary_list_dir = fs::read_dir(dictionary_dir).expect("Error occurred during reading dictionary dir");
+    
+        for file in dictionary_list_dir {
+            if let Ok(entry) = file {
+                let filename = entry.file_name().into_string().unwrap();
+                if filename.contains(".base") {
+                    return Some(filename);
+                }
+            }
+        }
+
+        None
+    }
 }
 
 #[cfg(test)]
@@ -215,9 +241,11 @@ mod tests {
 
     use super::types::*;
     use crate::parser::get_tags_from_dictionary;
+    use crate::parser::parse_json_into_words;
     use crate::parser::read_json_dictionary;
     use crate::web_api::LibreTranslateApi;
     use crate::parser::get_dictionary_by_lang;
+    use crate::parser::get_basic_dictionary;
 
     #[tokio::test]
     async fn test_libre_translator_on_localhost_works() {
@@ -282,6 +310,33 @@ mod tests {
         match result {
             Some(filename) => { println!("{}", filename); }
             None => { panic!("Error: dictionary is not found!"); }
+        }
+    }
+
+    #[test]
+    fn test_words_parsing_correctly() {
+        let dictionaries_dir = "C:/Users/Timur/Desktop/auto-translator/api/src/dictionaries";
+        let language = "ru";
+        let words = parse_json_into_words(&dictionaries_dir, language);
+        match words {
+            Ok(words) => {
+                assert_eq!(words.get(0).unwrap().language, "ru");
+                assert_eq!(words.get(0).unwrap().tag, "greeting");
+                assert_eq!(words.get(0).unwrap().word.replace("\"", ""), "Привет");
+            }
+            Err(_) => { panic!("Error occured while parsing words"); }
+        }
+    }
+
+    #[test]
+    fn test_utility_finds_correct_path_to_basic_dictionary() {
+        let dictionaries_dir = "C:/Users/Timur/Desktop/auto-translator/api/src/dictionaries";
+        let result = get_basic_dictionary(&dictionaries_dir);
+        match result {
+            Some(path) => {
+                assert_eq!("dictionary-en.base.json", path)
+            }
+            None => { println!("Basic dictionary is not found") }
         }
     }
 }
