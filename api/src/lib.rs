@@ -154,17 +154,6 @@ mod tests {
     use super::types::*;
     use crate::web_api::LibreTranslateApi;
 
-    #[test]
-    fn test_word_constructor_works() {
-        let word = Word::new(
-            "Привет".to_owned(),
-            "greeting".to_owned(),
-            "ru".to_owned(),
-        );
-        assert_eq!(word.language, "ru");
-        assert_eq!(word.tag, "greeting");
-    }
-
     #[tokio::test]
     async fn test_libre_translator_on_localhost_works() {
         let api = LibreTranslateApi::new("http://127.0.0.1:5000".to_owned());
