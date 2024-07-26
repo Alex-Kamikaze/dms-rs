@@ -140,19 +140,37 @@ pub mod web_api {
     }
 }
 
-pub mod manual_translation {
-    use std::fs::read_to_string;
+pub mod parser {
+    use std::{fs::read_to_string, vec};
+
+    use serde_json::Value;
 
     #[doc = "Reads JSON from given file"]
-    pub fn parse_json_dictionary(file_name: &str) -> Result<serde_json::Value, serde_json::Error> {
+    pub fn read_json_dictionary(file_name: &str) -> Result<serde_json::Value, serde_json::Error> {
         serde_json::from_str(&read_to_string(file_name).unwrap())
     }
+
+    #[doc = "Returns list of tags, that is used in dictionary"]
+    //TODO: Replace with correct error type
+    pub fn get_tags_from_dictionary(dictionary: Value) -> Result<Vec<String>, ()> {
+        if let Value::Object(dict) = dictionary {
+            Ok(dict.keys().cloned().collect())
+        }
+        else {
+            Err(())
+        }
+    }
+
+
 }
 
 #[cfg(test)]
 mod tests {
+
     use super::types::*;
     use crate::web_api::LibreTranslateApi;
+    use crate::parser::read_json_dictionary;
+    use crate::parser::get_tags_from_dictionary;
 
     #[tokio::test]
     async fn test_libre_translator_on_localhost_works() {
@@ -171,6 +189,41 @@ mod tests {
             Err(err) => {
                 println!("{}", err)
             }
+        }
+    }
+
+    #[test]
+    fn test_dictionary_file_reading() {
+        let file_path = "C:/Users/Timur/Desktop/auto-translator/cli/src/test.json";
+        let read_result = read_json_dictionary(&file_path);
+        match read_result {
+            Ok(json_object) => {
+                assert_eq!(json_object.get("greeting").is_some(), true);
+                assert_eq!(json_object.get("farewell").is_some(), true);
+                assert_eq!(json_object["greeting"]["ru"], "Привет");
+                assert_eq!(json_object["greeting"]["en"], "Hello");
+                assert_eq!(json_object["greeting"]["de"], "Hallo");
+            },
+            Err(_) => panic!("Error occured while reading the file"),
+        }
+    }
+
+    #[test]
+    fn test_tags_parsed_correctly() {
+        let file_path = "C:/Users/Timur/Desktop/auto-translator/cli/src/test.json";
+        let read_result = read_json_dictionary(&file_path);
+        match read_result {
+            Ok(json) => {
+                let keys = get_tags_from_dictionary(json);
+                match keys {
+                    Ok(tags) => {
+                        assert_eq!(tags.contains(&"farewell".to_owned()), true);
+                        assert_eq!(tags.contains(&"greeting".to_owned()), true);
+                    },
+                    Err(_) => panic!("Tag parser function returned an Err type"),
+                }
+            },
+            Err(_) => panic!("File-reader returned an Err type"),
         }
     }
 }

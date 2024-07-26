@@ -1,5 +1,12 @@
 {
-    "data": {
-        "value": 5
+    "greeting": {
+        "ru": "Привет",
+        "en": "Hello",
+        "de": "Hallo"
+    },
+    "farewell": {
+        "ru": "До свидания",
+        "en": "Goodbye",
+        "de": "Auf Wiedersehen"
     }
 }
