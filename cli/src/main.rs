@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 
 use api::types::Word;
+use api::manual_translation::parse_json_dictionary;
 use clap::Parser;
 use tokio::*;
 
@@ -19,6 +20,9 @@ async fn main() -> Result<(), reqwest::Error> {
             TranslateType::Auto(arguments) => {
                 todo!()
             }
+        },
+        CliSubcommands::TestRead(args) => {
+            println!("{:?}", parse_json_dictionary(&args.file_name))
         },
     }
     Ok(())

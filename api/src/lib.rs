@@ -140,11 +140,11 @@ pub mod web_api {
     }
 }
 
-mod manual_translation {
+pub mod manual_translation {
     use std::fs::read_to_string;
 
     #[doc = "Reads JSON from given file"]
-    fn parse_json_dictionary(file_name: &str) -> Result<serde_json::Value, serde_json::Error> {
+    pub fn parse_json_dictionary(file_name: &str) -> Result<serde_json::Value, serde_json::Error> {
         serde_json::from_str(&read_to_string(file_name).unwrap())
     }
 }
@@ -157,12 +157,12 @@ mod tests {
     #[test]
     fn test_word_constructor_works() {
         let word = Word::new(
-            "Плохое слово".to_owned(),
-            "offensive_word".to_owned(),
-            "RUS".to_owned(),
+            "Привет".to_owned(),
+            "greeting".to_owned(),
+            "ru".to_owned(),
         );
-        assert_eq!(word.language, "RUS");
-        assert_eq!(word.tag, "offensive_word");
+        assert_eq!(word.language, "ru");
+        assert_eq!(word.tag, "greeting");
     }
 
     #[tokio::test]
