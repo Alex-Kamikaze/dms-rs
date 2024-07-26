@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 
-use api::parser::read_json_dictionary;
+use api::parser::*;
 use api::types::Word;
 use clap::Parser;
 use tokio::*;
@@ -14,7 +14,11 @@ async fn main() -> Result<(), reqwest::Error> {
     let args = Cli::parse();
     match args.subcommand {
         Translate(translate_type) => match translate_type {
-            TranslateType::Manual(arguments) => {}
+            TranslateType::Manual(arguments) => {
+                println!("Generating empty dictionaries for languages {:?}", &arguments.languages);
+                generate_empty_dictionaries(arguments.dictionary_path, arguments.languages);
+                println!("Finished generating empty dictionaries");
+            }
             TranslateType::Auto(arguments) => {}
         },
         TestRead(args) => {

@@ -31,6 +31,8 @@ pub mod cli_args {
     #[derive(Debug, Args)]
     #[doc = "Arguments for manual translation feature"]
     pub struct ManualTranslationArgs {
+        /// Directory where dictionaries are stored
+        pub dictionary_path: String,
         /// Target languages
         pub languages: Vec<String>,
     }
