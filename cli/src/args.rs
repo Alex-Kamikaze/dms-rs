@@ -39,6 +39,7 @@ pub mod cli_args {
     #[doc = "Arguments for automatic translation feature"]
     pub struct AutoTranslationArgs {
         /// API that is used to translate words
+        // TODO: Replace with seperate implementations of API's
         pub translator_api: String,
         /// Target languages
         pub languages: Vec<String>,

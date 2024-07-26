@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(async_fn_in_trait)]
 
+#[doc = "Types that is used across whole API"]
 pub mod types {
     use serde::{Deserialize, Serialize};
     use std::fmt::Display;
@@ -61,6 +62,7 @@ pub mod types {
     }
 }
 
+#[doc = "Functionality, that is related to Translator API's in web"]
 pub mod web_api {
     use std::collections::HashMap;
 
@@ -140,37 +142,82 @@ pub mod web_api {
     }
 }
 
+#[doc = "Module with functionality that is related to parsing JSON Dictionary files"]
 pub mod parser {
-    use std::{fs::read_to_string, vec};
+    use std::fs;
 
     use serde_json::Value;
 
+    use crate::types::Word;
+
     #[doc = "Reads JSON from given file"]
     pub fn read_json_dictionary(file_name: &str) -> Result<serde_json::Value, serde_json::Error> {
-        serde_json::from_str(&read_to_string(file_name).unwrap())
+        serde_json::from_str(&fs::read_to_string(file_name).unwrap())
     }
 
     #[doc = "Returns list of tags, that is used in dictionary"]
     //TODO: Replace with correct error type
-    pub fn get_tags_from_dictionary(dictionary: Value) -> Result<Vec<String>, ()> {
+    pub fn get_tags_from_dictionary(dictionary: &Value) -> Result<Vec<String>, ()> {
         if let Value::Object(dict) = dictionary {
             Ok(dict.keys().cloned().collect())
-        }
-        else {
+        } else {
             Err(())
         }
     }
 
+    #[doc = "Returns filepath of dictionary based on the language input"]
+    pub fn get_dictionary_by_lang(dictionary_path: &str, lang: &str) -> Option<String> {
+        let dictionary_list_dir = fs::read_dir(dictionary_path).expect("Error occurred during reading dictionary dir");
+    
+        for file in dictionary_list_dir {
+            if let Ok(entry) = file {
+                let filename = entry.file_name().into_string().unwrap();
+                if filename.contains(lang) {
+                    return Some(filename);
+                }
+            }
+        }
 
+        None
+    }
+
+    #[doc = "Parses json file into Vec<Word>"]
+    //TODO: Replace with correct error type
+    pub fn parse_json_into_words(file_name: &str) -> Result<Vec<Word>, ()> {
+        let json = read_json_dictionary(file_name);
+        let language = "ru".to_owned(); //TODO: Replace with getting language from name of dictionary (dictionary-ru.json -> ru)
+        match json {
+            Ok(data) => {
+                let keys = get_tags_from_dictionary(&data);
+                match keys {
+                    Ok(tags) => {
+                        return Ok(tags
+                            .into_iter()
+                            .map(|tag| {
+                                Word::new(
+                                    data.get("word").unwrap().to_string(),
+                                    tag,
+                                    language.clone(),
+                                )
+                            })
+                            .collect::<Vec<Word>>());
+                    }
+                    Err(_) => return Err(()),
+                }
+            }
+            Err(_) => return Err(()),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::types::*;
-    use crate::web_api::LibreTranslateApi;
-    use crate::parser::read_json_dictionary;
     use crate::parser::get_tags_from_dictionary;
+    use crate::parser::read_json_dictionary;
+    use crate::web_api::LibreTranslateApi;
+    use crate::parser::get_dictionary_by_lang;
 
     #[tokio::test]
     async fn test_libre_translator_on_localhost_works() {
@@ -203,7 +250,7 @@ mod tests {
                 assert_eq!(json_object["greeting"]["ru"], "Привет");
                 assert_eq!(json_object["greeting"]["en"], "Hello");
                 assert_eq!(json_object["greeting"]["de"], "Hallo");
-            },
+            }
             Err(_) => panic!("Error occured while reading the file"),
         }
     }
@@ -214,16 +261,27 @@ mod tests {
         let read_result = read_json_dictionary(&file_path);
         match read_result {
             Ok(json) => {
-                let keys = get_tags_from_dictionary(json);
+                let keys = get_tags_from_dictionary(&json);
                 match keys {
                     Ok(tags) => {
                         assert_eq!(tags.contains(&"farewell".to_owned()), true);
                         assert_eq!(tags.contains(&"greeting".to_owned()), true);
-                    },
+                    }
                     Err(_) => panic!("Tag parser function returned an Err type"),
                 }
-            },
+            }
             Err(_) => panic!("File-reader returned an Err type"),
+        }
+    }
+
+    #[test]
+    fn test_utility_finds_correct_path_to_dictionary() {
+        let dictionaries_dir = "C:/Users/Timur/Desktop/auto-translator/api/src/dictionaries";
+        let language = "ru";
+        let result = get_dictionary_by_lang(&dictionaries_dir, &language);
+        match result {
+            Some(filename) => { println!("{}", filename); }
+            None => { panic!("Error: dictionary is not found!"); }
         }
     }
 }
