@@ -144,9 +144,14 @@ pub mod web_api {
 
 #[doc = "Module with functionality that is related to parsing JSON Dictionary files"]
 pub mod parser {
-    use std::fs;
+    use std::{
+        fs,
+        io::{self, Write},
+        sync::Arc,
+        thread,
+    };
 
-    use serde_json::Value;
+    use serde_json::{json, Value};
 
     use crate::types::Word;
 
@@ -167,8 +172,9 @@ pub mod parser {
 
     #[doc = "Returns filepath of dictionary based on the language input"]
     pub fn get_dictionary_by_lang(dictionary_path: &str, lang: &str) -> Option<String> {
-        let dictionary_list_dir = fs::read_dir(dictionary_path).expect("Error occurred during reading dictionary dir");
-    
+        let dictionary_list_dir =
+            fs::read_dir(dictionary_path).expect("Error occurred during reading dictionary dir");
+
         for file in dictionary_list_dir {
             if let Ok(entry) = file {
                 let filename = entry.file_name().into_string().unwrap();
@@ -190,9 +196,8 @@ pub mod parser {
             let path = format!("{}/", dictionary_dir.to_owned()) + &filename.unwrap();
             println!("{}", &path);
             json = read_json_dictionary(&path);
-        }
-        else {
-            return Err(())
+        } else {
+            return Err(());
         }
 
         match json {
@@ -207,7 +212,7 @@ pub mod parser {
                                 Word::new(
                                     tag_data.get("word").unwrap().to_string(),
                                     tag,
-                                    language.to_owned()
+                                    language.to_owned(),
                                 )
                             })
                             .collect::<Vec<Word>>());
@@ -221,8 +226,9 @@ pub mod parser {
 
     #[doc = "Returns path to the basic dictionary"]
     pub fn get_basic_dictionary(dictionary_dir: &str) -> Option<String> {
-        let dictionary_list_dir = fs::read_dir(dictionary_dir).expect("Error occurred during reading dictionary dir");
-    
+        let dictionary_list_dir =
+            fs::read_dir(dictionary_dir).expect("Error occurred during reading dictionary dir");
+
         for file in dictionary_list_dir {
             if let Ok(entry) = file {
                 let filename = entry.file_name().into_string().unwrap();
@@ -234,18 +240,68 @@ pub mod parser {
 
         None
     }
+
+    #[doc = "Generates empty dictionaries, based on basic dictionaries, for manual translation"]
+    pub fn generate_empty_dictionaries(
+        dictionary_path: String,
+        languages: Vec<String>,
+    ) -> std::io::Result<()> {
+        let basic_dictionary_path = get_basic_dictionary(&dictionary_path);
+        let mut handlers = vec![];
+        match basic_dictionary_path {
+            Some(path) => {
+                let dictionary_path_arc = Arc::new(dictionary_path);
+                for language in languages {
+                    let dictionary_path_clone = Arc::clone(&dictionary_path_arc);
+                    let path_clone = path.clone();
+                    let handler = thread::spawn(move || {
+                        let tags = get_tags_from_dictionary(
+                            &read_json_dictionary(
+                                &(format!("{}/", *dictionary_path_clone.to_owned()) + &path_clone),
+                            )
+                            .unwrap(),
+                        )
+                        .unwrap();
+                        let mut json_object = serde_json::json!({});
+                        for tag in tags {
+                            json_object[&tag] = json!({
+                                "word": ""
+                            });
+                        }
+                        let mut new_dictionary =
+                            fs::File::create_new(format!("{}/dictionary-{}.json", *dictionary_path_clone.to_owned(), language)).unwrap();
+                        new_dictionary.write_all(
+                            serde_json::to_string_pretty(&json_object)
+                                .unwrap()
+                                .as_bytes(),
+                        )
+                    });
+                    handlers.push(handler);
+                }
+                for handle in handlers {
+                    handle.join().unwrap();
+                }
+                Ok(())
+            }
+            None => Err(std::io::Error::new(
+                io::ErrorKind::Other,
+                "Something went wrong",
+            )),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::types::*;
+    use crate::parser::generate_empty_dictionaries;
+    use crate::parser::get_basic_dictionary;
+    use crate::parser::get_dictionary_by_lang;
     use crate::parser::get_tags_from_dictionary;
     use crate::parser::parse_json_into_words;
     use crate::parser::read_json_dictionary;
     use crate::web_api::LibreTranslateApi;
-    use crate::parser::get_dictionary_by_lang;
-    use crate::parser::get_basic_dictionary;
 
     #[tokio::test]
     async fn test_libre_translator_on_localhost_works() {
@@ -308,8 +364,12 @@ mod tests {
         let language = "ru";
         let result = get_dictionary_by_lang(&dictionaries_dir, &language);
         match result {
-            Some(filename) => { println!("{}", filename); }
-            None => { panic!("Error: dictionary is not found!"); }
+            Some(filename) => {
+                println!("{}", filename);
+            }
+            None => {
+                panic!("Error: dictionary is not found!");
+            }
         }
     }
 
@@ -324,7 +384,9 @@ mod tests {
                 assert_eq!(words.get(0).unwrap().tag, "greeting");
                 assert_eq!(words.get(0).unwrap().word.replace("\"", ""), "Привет");
             }
-            Err(_) => { panic!("Error occured while parsing words"); }
+            Err(_) => {
+                panic!("Error occured while parsing words");
+            }
         }
     }
 
@@ -336,7 +398,22 @@ mod tests {
             Some(path) => {
                 assert_eq!("dictionary-en.base.json", path)
             }
-            None => { println!("Basic dictionary is not found") }
+            None => {
+                println!("Basic dictionary is not found")
+            }
+        }
+    }
+
+    #[test]
+    fn test_generate_empty_dictionaries() {
+        let languages = vec!["de".to_owned(), "en".to_owned()];
+        let dictionaries_dir = "C:/Users/Timur/Desktop/auto-translator/api/src/dictionaries";
+        let result = generate_empty_dictionaries(dictionaries_dir.to_owned(), languages);
+        match result {
+            Ok(()) => {}
+            Err(error) => {
+                panic!("Error occured while creating dictionaries");
+            }
         }
     }
 }
