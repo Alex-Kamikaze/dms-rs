@@ -2,7 +2,6 @@
 #![allow(async_fn_in_trait)]
 
 pub mod errors;
-use errors::*;
 
 #[doc = "Types that is used across whole API"]
 pub mod types {

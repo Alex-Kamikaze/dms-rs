@@ -2,9 +2,9 @@ pub mod cli_args {
     use clap::{builder::Str, Args, Parser, Subcommand};
 
     #[derive(Parser, Debug)]
-    #[clap(version = "1", about = "Utility for auto-generating JSON dictionaries with wide range of translating APIs", long_about = None)]
+    #[clap(version = "0.1 Experimental", about = "Utility for auto-generating JSON dictionaries with wide range of translating APIs", long_about = None)]
     #[doc = "Parser for CLI arguments"]
-    pub struct Cli {
+    pub struct TranslatorCli {
         #[clap(subcommand)]
         pub subcommand: CliSubcommands,
     }

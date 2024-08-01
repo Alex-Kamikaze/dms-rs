@@ -13,7 +13,7 @@ use args::cli_args::*;
 
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
-    let args = Cli::parse();
+    let args = TranslatorCli::parse();
     match args.subcommand {
         Translate(translate_type) => match translate_type {
             TranslateType::Manual(arguments) => {
