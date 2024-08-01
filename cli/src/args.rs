@@ -14,8 +14,8 @@ pub mod cli_args {
         #[clap(subcommand)]
         /// Translate text from dictionaries
         Translate(TranslateType),
-        /// Test function for printing out contents of JSON file
-        TestRead(TestReadArgs),
+        /// Initialize new dictionaries system
+        Init(InitializeArguments),
     }
 
     #[derive(Debug, Subcommand)]
@@ -48,7 +48,8 @@ pub mod cli_args {
     }
 
     #[derive(Debug, Args)]
-    pub struct TestReadArgs {
-        pub file_name: String,
+    pub struct InitializeArguments {
+        pub basic_language: String,
+        pub directory: Option<String>,
     }
 }

@@ -314,7 +314,7 @@ pub mod parser {
 }
 
 #[doc = "Module with items related to generating and parsing static dictionaries"]
-mod static_translate {
+pub mod static_translate {
     use std::fs;
     use std::sync::{Arc, Mutex};
 
@@ -371,31 +371,75 @@ mod static_translate {
     #[doc = "Generates empty dictionaries from basic static dictionary"]
     pub fn generate_empty_dictionaries_from_static_basic(
         dictionary_dir: &str,
-        languages: Vec<&str>,
+        languages: Vec<String>,
     ) -> Result<(), StaticDictionaryErrors> {
-        let basic_dictionary = parse_static_dictionary(dictionary_dir, None)?;
-        let words = Arc::new(basic_dictionary.par_iter().map(|word| {
-            Word::new(
-                word.to_owned(),
-                word.to_owned(),
-                get_dictionary_language(&get_basic_dictionary(dictionary_dir).unwrap()).unwrap(),
-            )
-            .to_owned()
-        })
-        .collect::<Vec<Word>>());
+        let mut basic_dictionary = parse_static_dictionary(dictionary_dir, None)?;
+        basic_dictionary.dedup();
+        let words = Arc::new(
+            basic_dictionary
+                .par_iter()
+                .map(|word| {
+                    Word::new(
+                        word.to_owned(),
+                        word.to_owned(),
+                        get_dictionary_language(&get_basic_dictionary(dictionary_dir).unwrap())
+                            .unwrap(),
+                    )
+                    .to_owned()
+                })
+                .collect::<Vec<Word>>(),
+        );
 
-        languages.par_iter()
-            .for_each(|language| {
-                let file = fs::File::create_new(format!("{}/dictionary-{}.json", dictionary_dir, language)).unwrap();
-                let json_object = Arc::new(Mutex::new(serde_json::json!({})));
-                let words = Arc::clone(&words);
-                words.par_iter()
-                    .for_each(|word| {
-                        let mut json_object = json_object.lock().unwrap();
-                        json_object[word.clone().word] = "".into();
-                    });
-                serde_json::to_writer_pretty(&file, &*json_object.lock().unwrap()).unwrap();
+        languages.par_iter().for_each(|language| {
+            let file =
+                fs::File::create_new(format!("{}/dictionary-{}.json", dictionary_dir, language))
+                    .unwrap();
+            let json_object = Arc::new(Mutex::new(serde_json::json!({})));
+            let words = Arc::clone(&words);
+            words.par_iter().for_each(|word| {
+                let mut json_object = json_object.lock().unwrap();
+                json_object[word.clone().word] = "".into();
             });
+            serde_json::to_writer_pretty(&file, &*json_object.lock().unwrap()).unwrap();
+        });
+        Ok(())
+    }
+}
+
+#[doc = "Module with functionality for working with directories with dictionaries"]
+pub mod file_system {
+    use std::{
+        env::current_dir,
+        file,
+        fs::{self, File},
+    };
+
+    #[doc = "Initialize a new directory with basic static dictionary"]
+    pub fn init_new_dictionary_system(
+        parent: Option<String>,
+        basic_language: String,
+    ) -> std::io::Result<()> {
+        match parent {
+            Some(path) => {
+                fs::create_dir_all(format!("{}/dictionaries", path))?;
+                let file = File::create_new(format!(
+                    "{}/dictionaries/dictionary-{}.base.json",
+                    path, basic_language
+                ))?;
+                let json_object = serde_json::json!([]);
+                serde_json::to_writer_pretty(&file, &json_object).unwrap();
+            }
+            None => {
+                let path = std::env::current_dir()?.to_str().unwrap().to_owned();
+                fs::create_dir_all(format!("{}/dictionaries", path))?;
+                let file = File::create_new(format!(
+                    "{}/dictionaries/dictionary-{}.base.json",
+                    &path, basic_language
+                ))?;
+                let json_object = serde_json::json!([]);
+                serde_json::to_writer_pretty(&file, &json_object).unwrap();
+            }
+        }
         Ok(())
     }
 }
@@ -410,9 +454,9 @@ mod tests {
     use crate::parser::get_tags_from_dictionary;
     use crate::parser::parse_json_into_words;
     use crate::parser::read_json_dictionary;
+    use crate::static_translate::generate_empty_dictionaries_from_static_basic;
     use crate::static_translate::parse_static_dictionary;
     use crate::web_api::LibreTranslateApi;
-    use crate::static_translate::generate_empty_dictionaries_from_static_basic;
 
     #[tokio::test]
     async fn test_libre_translator_on_localhost_works() {
@@ -484,6 +528,7 @@ mod tests {
         }
     }
 
+    // FIXME: "Obsolete test, rewrite when preprocessor feature will be in development"
     #[test]
     fn test_words_parsing_correctly() {
         let dictionaries_dir = "C:/Users/Timur/Desktop/auto-translator/api/src/dictionaries";
@@ -507,7 +552,7 @@ mod tests {
         let result = get_basic_dictionary(&dictionaries_dir);
         match result {
             Some(path) => {
-                assert_eq!("dictionary-en.base.json", path)
+                assert_eq!("dictionary-ru.base.json", path)
             }
             None => {
                 println!("Basic dictionary is not found")
@@ -549,10 +594,13 @@ mod tests {
     #[test]
     fn test_generation_of_static_dictionaries() {
         let dictionary_path = "C:/Users/Timur/Desktop/auto-translator/api/src/dictionaries";
-        let result = generate_empty_dictionaries_from_static_basic(&dictionary_path, vec!["en", "de"]);
+        let result = generate_empty_dictionaries_from_static_basic(
+            &dictionary_path,
+            vec!["en".to_owned(), "de".to_owned()],
+        );
         match result {
             Ok(_) => {}
-            Err(err) => {
+            Err(_err) => {
                 panic!("Error occured while generating empty dictionaries");
             }
         }
