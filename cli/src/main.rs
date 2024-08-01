@@ -15,10 +15,18 @@ async fn main() -> Result<(), reqwest::Error> {
     match args.subcommand {
         Translate(translate_type) => match translate_type {
             TranslateType::Manual(arguments) => {
-                println!("Generating empty dictionaries for languages {:?}", &arguments.languages);
-                generate_empty_dictionaries(arguments.dictionary_path, arguments.languages);
-                println!("Finished generating empty dictionaries");
+                println!(
+                    "Generating empty dictionaries for languages {:?}",
+                    &arguments.languages
+                );
+                let generate_result = generate_empty_dictionaries(arguments.dictionary_path, arguments.languages);
+                match generate_result {
+                    Ok(()) => { println!("Finished generating empty dictionaries");}
+                    Err(_) => { println!("Error: Problem occured while generating empty dictionaries")}
+                }
+                
             }
+            //TODO: Implement auto translation for static dictionaries with LibreTranslate
             TranslateType::Auto(arguments) => {}
         },
         TestRead(args) => {

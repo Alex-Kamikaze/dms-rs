@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 #![allow(async_fn_in_trait)]
 
+pub mod errors;
+use errors::*;
+
 #[doc = "Types that is used across whole API"]
 pub mod types {
     use serde::{Deserialize, Serialize};
@@ -25,11 +28,11 @@ pub mod types {
 
     impl Word {
         pub fn new(word: String, tag: String, lang: String) -> Word {
-            return Word {
+            Word {
                 word,
                 tag,
                 language: lang,
-            };
+            }
         }
 
         #[doc = "Serializing structure into JSON for build step"]
@@ -133,11 +136,11 @@ pub mod web_api {
                 .await?;
             let translated_word: HashMap<String, Value> =
                 serde_json::from_str(&result).expect("Error occured while parsing");
-            return Ok(Word::new(
+            Ok(Word::new(
                 translated_word["translatedText"].to_string(),
                 word.tag,
                 target_language,
-            ));
+            ))
         }
     }
 }
@@ -151,6 +154,7 @@ pub mod parser {
         thread,
     };
 
+    use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
     use serde_json::{json, Value};
 
     use crate::types::Word;
@@ -190,15 +194,13 @@ pub mod parser {
     #[doc = "Parses json file into Vec<Word>"]
     //TODO: Replace with correct error type
     pub fn parse_json_into_words(dictionary_dir: &str, language: &str) -> Result<Vec<Word>, ()> {
-        let json;
         let filename = get_dictionary_by_lang(dictionary_dir, language);
-        if filename.is_some() {
+        let json = if filename.is_some() {
             let path = format!("{}/", dictionary_dir.to_owned()) + &filename.unwrap();
-            println!("{}", &path);
-            json = read_json_dictionary(&path);
+            read_json_dictionary(&path)
         } else {
             return Err(());
-        }
+        };
 
         match json {
             Ok(data) => {
@@ -206,21 +208,21 @@ pub mod parser {
                 match keys {
                     Ok(tags) => {
                         return Ok(tags
-                            .into_iter()
+                            .par_iter()
                             .map(|tag| {
-                                let tag_data = data.get(&tag).unwrap();
+                                let tag_data = data.get(tag).unwrap();
                                 Word::new(
                                     tag_data.get("word").unwrap().to_string(),
-                                    tag,
+                                    tag.to_owned(),
                                     language.to_owned(),
                                 )
                             })
                             .collect::<Vec<Word>>());
                     }
-                    Err(_) => return Err(()),
+                    Err(_) => Err(()),
                 }
             }
-            Err(_) => return Err(()),
+            Err(_) => Err(()),
         }
     }
 
@@ -268,8 +270,12 @@ pub mod parser {
                                 "word": ""
                             });
                         }
-                        let mut new_dictionary =
-                            fs::File::create_new(format!("{}/dictionary-{}.json", *dictionary_path_clone.to_owned(), language)).unwrap();
+                        let mut new_dictionary = fs::File::create_new(format!(
+                            "{}/dictionary-{}.json",
+                            *dictionary_path_clone.to_owned(),
+                            language
+                        ))
+                        .unwrap();
                         new_dictionary.write_all(
                             serde_json::to_string_pretty(&json_object)
                                 .unwrap()
@@ -279,14 +285,61 @@ pub mod parser {
                     handlers.push(handler);
                 }
                 for handle in handlers {
-                    handle.join().unwrap();
+                    let _ = handle.join().unwrap();
                 }
                 Ok(())
             }
             None => Err(std::io::Error::new(
                 io::ErrorKind::Other,
-                "Something went wrong",
+                "Couldn't find a basic dictionary",
             )),
+        }
+    }
+}
+
+#[doc = "Module with items related to generating and parsing static dictionaries"]
+mod static_translate {
+    use std::fs;
+
+    use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+    use serde_json::Value;
+    
+    use crate::parser::get_basic_dictionary;
+    use crate::errors::errors::StaticDictionaryErrors;
+
+    #[doc = "Parses list of words into Vec<String>. If language is not provided, it will parse basic dictionary"]
+    pub fn parse_static_dictionary(dictionary_dir: &str, lang: Option<&str>) -> Result<Vec<String>, StaticDictionaryErrors> {
+        if lang.is_some() {
+            let file_content = fs::read_to_string(format!(
+                "{}/dictionary-{}.json",
+                dictionary_dir,
+                lang.unwrap()
+            ))
+            .unwrap();
+            let json_obj: Value = serde_json::from_str(&file_content).unwrap();
+            Ok(json_obj
+                .as_array()
+                .unwrap()
+                .par_iter()
+                .map(|v| v.as_str().unwrap().to_owned())
+                .collect::<Vec<String>>())
+        }
+        else {
+            let basic_dictionary = get_basic_dictionary(dictionary_dir);
+            match basic_dictionary {
+                Some(path) => {
+                    let file_content = fs::read_to_string(format!("{}/{}", dictionary_dir, path)).unwrap();
+                    let json_object: Value = serde_json::from_str(&file_content).unwrap();
+                    Ok(json_object.as_array()
+                    .unwrap()
+                    .par_iter()
+                    .map(|v| v.as_str().unwrap().to_owned())
+                    .collect::<Vec<String>>())
+                }
+                None => {
+                    return Err(StaticDictionaryErrors::LanguageNotProvidedAndBasicDictionaryNotFound)
+                }
+            }
         }
     }
 }
@@ -301,6 +354,7 @@ mod tests {
     use crate::parser::get_tags_from_dictionary;
     use crate::parser::parse_json_into_words;
     use crate::parser::read_json_dictionary;
+    use crate::static_translate::parse_static_dictionary;
     use crate::web_api::LibreTranslateApi;
 
     #[tokio::test]
@@ -411,8 +465,23 @@ mod tests {
         let result = generate_empty_dictionaries(dictionaries_dir.to_owned(), languages);
         match result {
             Ok(()) => {}
-            Err(error) => {
+            Err(_) => {
                 panic!("Error occured while creating dictionaries");
+            }
+        }
+    }
+
+    #[test]
+    fn test_static_dictionary_parses_correctly() {
+        let dictionary_path = "C:/Users/Timur/Desktop/auto-translator/api/src/dictionaries";
+        let result = parse_static_dictionary(dictionary_path, None);
+        match result {
+            Ok(words) => {
+                assert_eq!(words.contains(&"Добро пожаловать на наш сайт".to_owned()), true);
+                assert_eq!(words.contains(&"Здесь вам не рады".to_owned()), true);
+            }
+            Err(_) => {
+                panic!("Error occured: Coudn't find basic dictionary");
             }
         }
     }
