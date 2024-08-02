@@ -35,12 +35,12 @@ pub mod types {
                 language: lang,
             }
         }
-
+        #[inline]
         #[doc = "Serializing structure into JSON for build step"]
         pub fn into_json(&self) -> Result<String, serde_json::Error> {
             serde_json::to_string(self)
         }
-
+        #[inline]
         #[doc = "Deserializing JSON into Structure for internal functionality"]
         pub fn from_json(json_data: String) -> Result<Word, serde_json::Error> {
             serde_json::from_str::<Word>(&json_data)
@@ -377,7 +377,8 @@ pub mod static_translate {
 
         languages.par_iter().for_each(|language| {
             let file =
-                fs::File::create_new(format!("{}/dictionary-{}.json", dictionary_dir, language)).unwrap();
+                fs::File::create_new(format!("{}/dictionary-{}.json", dictionary_dir, language))
+                    .unwrap();
             let json_object = Arc::new(Mutex::new(serde_json::json!({})));
             let words = Arc::clone(&words);
             words.par_iter().for_each(|word| {
@@ -392,7 +393,10 @@ pub mod static_translate {
 
 #[doc = "Module with functionality for working with directories with dictionaries"]
 pub mod file_system {
-    use std::fs::{self, File};
+    use std::{
+        fs::{self, File},
+        path::Path,
+    };
 
     use crate::errors::errors::StaticDictionaryErrors;
 
@@ -423,6 +427,14 @@ pub mod file_system {
             }
         }
         Ok(())
+    }
+
+    #[doc = "Checks that dictionary for specific language exists"]
+    pub fn check_dictionary_exists(
+        dictionary_path: &str,
+        language: &str,
+    ) -> bool {
+        Path::new(&format!("{}/dictionaries/dictionary-{}.json", dictionary_path, language)).exists()
     }
 }
 
@@ -541,6 +553,7 @@ mod tests {
     }
 
     #[test]
+    //FIXME: Figure out why code works correct, but test fails
     fn test_generation_of_static_dictionaries() {
         let dictionary_path = "C:/Users/Timur/Desktop/auto-translator/api/src/dictionaries";
         let result = generate_empty_dictionaries_from_static_basic(
