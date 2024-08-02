@@ -250,7 +250,7 @@ pub mod parser {
         )))
     }
 
-    #[doc = "Generates empty dictionaries, based on basic dictionaries, for manual translation"]
+    #[doc = "Generates empty dictionaries, based on basic dictionaries, for manual translation (Preprocessor feature, do not use in static mode!)"]
     pub fn generate_empty_dictionaries(
         dictionary_path: String,
         languages: Vec<String>,
@@ -316,6 +316,7 @@ pub mod static_translate {
     use serde_json::Value;
 
     use crate::errors::errors::StaticDictionaryErrors;
+    use crate::file_system::check_dictionary_exists;
     use crate::parser::get_basic_dictionary;
     use crate::parser::get_dictionary_language;
     use crate::types::Word;
@@ -376,9 +377,12 @@ pub mod static_translate {
         );
 
         languages.par_iter().for_each(|language| {
+            
+            if check_dictionary_exists(dictionary_dir, language) {
+                fs::remove_file(format!("{}/dictionary-{}.json", dictionary_dir, language)).unwrap();
+            }
             let file =
-                fs::File::create_new(format!("{}/dictionary-{}.json", dictionary_dir, language))
-                    .unwrap();
+                fs::File::create_new(format!("{}/dictionary-{}.json", dictionary_dir, language)).expect(&format!("Произошла ошибка при попытке создать файл словаря dictionary-{}.json", language));
             let json_object = Arc::new(Mutex::new(serde_json::json!({})));
             let words = Arc::clone(&words);
             words.par_iter().for_each(|word| {
@@ -434,7 +438,7 @@ pub mod file_system {
         dictionary_path: &str,
         language: &str,
     ) -> bool {
-        Path::new(&format!("{}/dictionaries/dictionary-{}.json", dictionary_path, language)).exists()
+        Path::new(&format!("{}/dictionary-{}.json", dictionary_path, language)).exists()
     }
 }
 
@@ -442,6 +446,7 @@ pub mod file_system {
 mod tests {
 
     use super::types::*;
+    use crate::file_system::check_dictionary_exists;
     use crate::parser::get_basic_dictionary;
     use crate::parser::get_dictionary_by_lang;
     use crate::parser::get_tags_from_dictionary;
@@ -566,5 +571,12 @@ mod tests {
                 panic!("Error occured while generating empty dictionaries");
             }
         }
+    }
+
+    #[test]
+    fn test_check_path_works_correctly() {
+        let dictionaries_path = "C:/Users/Timur/Desktop/auto-translator/dictionaries";
+        assert_eq!(check_dictionary_exists(dictionaries_path, "de"), true);
+        assert_eq!(check_dictionary_exists(dictionaries_path, "en"), true);
     }
 }

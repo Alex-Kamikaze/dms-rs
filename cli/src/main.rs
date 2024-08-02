@@ -39,7 +39,9 @@ async fn main() -> Result<(), reqwest::Error> {
                 }
                 }
                 //TODO: Implement auto translation for static dictionaries with LibreTranslate
-                TranslateType::Auto(arguments) => {}
+                TranslateType::Auto(arguments) => {
+                    
+                }
             }
         }
 
