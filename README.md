@@ -1,4 +1,4 @@
-#dms-rs (Dictionary Managment System)
+# dms-rs (Dictionary Managment System)
 
 ```
 Утилита для управления репозиторием JSON-словарей и переводом в ручном или автоматическом режиме
