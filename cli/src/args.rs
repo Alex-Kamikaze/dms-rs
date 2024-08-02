@@ -2,8 +2,8 @@ pub mod cli_args {
     use clap::{builder::Str, Args, Parser, Subcommand};
 
     #[derive(Parser, Debug)]
-    #[clap(version = "0.1 Experimental", about = "Utility for auto-generating JSON dictionaries with wide range of translating APIs", long_about = None)]
-    #[doc = "Parser for CLI arguments"]
+    #[clap(version = "0.1 Experimental", about = "Утилита для управления репозиторием JSON-словарей и переводом в ручном или автоматическом режиме", long_about = None)]
+    #[doc = "Парсер CLI-аргументов"]
     pub struct TranslatorCli {
         #[clap(subcommand)]
         pub subcommand: CliSubcommands,
@@ -12,44 +12,47 @@ pub mod cli_args {
     #[derive(Debug, Subcommand)]
     pub enum CliSubcommands {
         #[clap(subcommand)]
-        /// Translate text from dictionaries
+        /// Перевести текст в статических словарях
         Translate(TranslateType),
-        /// Initialize new dictionaries system
+        /// Инициализировать новый репозиторий словарей
         Init(InitializeArguments),
     }
 
     #[derive(Debug, Subcommand)]
-    #[doc = "Subcommand for providing type of translation"]
+    #[doc = "Варианты режима перевода"]
     pub enum TranslateType {
-        /// Create an empty dictionaries for manual translation
+        /// Создать пустые словари на основе базового для ручного перевода
         Manual(ManualTranslationArgs),
 
-        /// Generate empty dictionaries and fill them with translated words from basic dictionaries by translation API's
+        /// Сгенерировать пустые словари на основе базового, а потом перевести их с помощью одного из API
         Auto(AutoTranslationArgs),
     }
 
     #[derive(Debug, Args)]
-    #[doc = "Arguments for manual translation feature"]
+    #[doc = "Аргументы для команды translate manual"]
     pub struct ManualTranslationArgs {
-        /// Directory where dictionaries are stored
+        /// Репозиторий со словарями
         pub dictionary_path: String,
-        /// Target languages
+        /// Языки для перевода
         pub languages: Vec<String>,
     }
 
     #[derive(Debug, Args)]
-    #[doc = "Arguments for automatic translation feature"]
+    #[doc = "Аргументы для команды translate auto"]
     pub struct AutoTranslationArgs {
-        /// API that is used to translate words
+        /// API, которое будет использоваться для автоперевода
         // TODO: Replace with seperate implementations of API's
         pub translator_api: String,
-        /// Target languages
+        /// Языки для перевода
         pub languages: Vec<String>,
     }
 
     #[derive(Debug, Args)]
+    #[doc = "Аргументы для команды init"]
     pub struct InitializeArguments {
+        /// Язык, который будет использоваться в базовом словаре
         pub basic_language: String,
+        /// Директория, где будет инициализирован репозиторий
         pub directory: Option<String>,
     }
 }

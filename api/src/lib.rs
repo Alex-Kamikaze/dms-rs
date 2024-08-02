@@ -307,25 +307,9 @@ pub mod static_translate {
     use crate::types::Word;
 
     #[doc = "Парсит список слов в Vec<Word>. Если не передан аргумент с названием языка, то будут получены слова из базового словаря"]
-    //TODO: Переписать так, чтобы парсился ТОЛЬКО БАЗОВЫЙ СЛОВАРЬ
-    pub fn parse_static_dictionary(
-        dictionary_dir: &str,
-        lang: Option<&str>,
+    pub fn parse_static_basic_dictionary(
+        dictionary_dir: &str
     ) -> Result<Vec<String>, StaticDictionaryErrors> {
-        if lang.is_some() {
-            let file_content = fs::read_to_string(format!(
-                "{}/dictionary-{}.json",
-                dictionary_dir,
-                lang.unwrap()
-            ))?;
-            let json_obj: Value = serde_json::from_str(&file_content)?;
-            Ok(json_obj
-                .as_array()
-                .unwrap()
-                .par_iter()
-                .map(|v| v.as_str().unwrap().to_owned())
-                .collect::<Vec<String>>())
-        } else {
             let basic_dictionary = get_basic_dictionary(dictionary_dir)?;
             let file_content =
                 fs::read_to_string(format!("{}/{}", dictionary_dir, basic_dictionary))?;
@@ -337,15 +321,13 @@ pub mod static_translate {
                 .map(|v| v.as_str().unwrap().to_owned())
                 .collect::<Vec<String>>())
         }
-    }
 
     #[doc = "Генерирует пустые статические словари из базового статического словаря"]
-    //TODO: Переписать с кастомной имплементацией параллелизма с thread scope
     pub fn generate_empty_dictionaries_from_static_basic(
         dictionary_dir: &str,
         languages: Vec<String>,
     ) -> Result<(), StaticDictionaryErrors> {
-        let mut basic_dictionary = parse_static_dictionary(dictionary_dir, None)?;
+        let mut basic_dictionary = parse_static_basic_dictionary(dictionary_dir)?;
         basic_dictionary.dedup();
         let words = Arc::new(
             basic_dictionary
@@ -439,7 +421,7 @@ mod tests {
     use crate::parser::get_tags_from_dictionary;
     use crate::parser::read_json_dictionary;
     use crate::static_translate::generate_empty_dictionaries_from_static_basic;
-    use crate::static_translate::parse_static_dictionary;
+    use crate::static_translate::parse_static_basic_dictionary;
     use crate::web_api::LibreTranslateApi;
 
     #[tokio::test]
@@ -529,7 +511,7 @@ mod tests {
     #[test]
     fn test_static_dictionary_parses_correctly() {
         let dictionary_path = "C:/Users/Timur/Desktop/auto-translator/api/src/dictionaries";
-        let result = parse_static_dictionary(dictionary_path, None);
+        let result = parse_static_basic_dictionary(dictionary_path);
         match result {
             Ok(words) => {
                 assert_eq!(
