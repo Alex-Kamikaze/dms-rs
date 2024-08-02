@@ -4,18 +4,18 @@ pub mod errors {
     use thiserror::Error;
 
     #[derive(Error, Debug)]
-    #[doc = "Custom errors and wrapper types for external error types, that can occur in static dictionaries"]
+    #[doc = "Кастомные типы ошибки и обертки для внешних типов ошибок, которые могут возникать в функциях модулей работы со статическими словарями"]
     pub enum StaticDictionaryErrors {
-        #[error("Basic dictionary not found and language is not provided")]
-        /// Error, that is raised when utility cannot find basic dictionary (dictionary-*.base.json)
+        #[error("Базовый словарь не найден и не предоставлено название языка для поиска другого словаря")]
+        /// Ошибка, которая вызывается, если утилита не может найти базового словаря и если при вызове функции не был передан аргумент с названием языка
         BasicDictionaryNotFound,
         #[error("Cannot parse JSON into dictionary")]
-        /// Wrapper around serde_json::Error type
+        /// Обертка для типа serde_json::Error
         JSONParsingError(#[from] serde_json::Error),
         #[error("Error occured while translating word")]
-        /// Wrapper around reqwest::Error type
+        /// Обертка для типа reqwest::Error
         APIError(#[from] reqwest::Error),
-        /// Wrapper around io::Error type
+        /// Обертка для типа io::Error
         #[error("Error occured during working with dictionary file")]
         IOError(#[from] io::Error),
     }
