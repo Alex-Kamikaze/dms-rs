@@ -3,14 +3,14 @@
 
 pub mod errors;
 
-#[doc = "Types that is used across whole API"]
+#[doc = "Типы данных, которые используются во всех частях API"]
 pub mod types {
     use serde::{Deserialize, Serialize};
     use std::fmt::Display;
 
     use crate::errors::errors::StaticDictionaryErrors;
 
-    #[doc = "Trait, that should be implemented in all objects, that is used for translating words with API's. This enables the State pattern"]
+    #[doc = "Треит, который должны реализовывать все структуры, используемые для обращения к API переводчиков"]
     pub trait TranslatorApi {
         async fn translate_word_with_tag(
             &self,
@@ -20,7 +20,7 @@ pub mod types {
     }
 
     #[derive(Serialize, Deserialize, Default, Clone)]
-    #[doc = "Middleware representation between json and api model"]
+    #[doc = "Промежуточная модель между JSON-словарями и API"]
     pub struct Word {
         pub word: String,
         pub tag: String,
@@ -36,12 +36,12 @@ pub mod types {
             }
         }
         #[inline]
-        #[doc = "Serializing structure into JSON for build step"]
+        #[doc = "Сериализует модель в JSON"]
         pub fn into_json(&self) -> Result<String, serde_json::Error> {
             serde_json::to_string(self)
         }
         #[inline]
-        #[doc = "Deserializing JSON into Structure for internal functionality"]
+        #[doc = "Инициализирует модель из JSON"]
         pub fn from_json(json_data: String) -> Result<Word, serde_json::Error> {
             serde_json::from_str::<Word>(&json_data)
         }
@@ -58,7 +58,7 @@ pub mod types {
     }
 }
 
-#[doc = "Functionality, that is related to Translator API's in web"]
+#[doc = "Компоненты для работы с API переводчиками"]
 pub mod web_api {
     use std::collections::HashMap;
 
@@ -71,13 +71,13 @@ pub mod web_api {
     use serde_json::Value;
 
     #[derive(Debug, Clone)]
-    #[doc = "Struct that represents the caller for LibreTranslate API"]
+    #[doc = "Структура для работы с API LibreTranslate"]
     pub struct LibreTranslateApi {
         pub host: String,
     }
 
     #[derive(Serialize, Deserialize)]
-    #[doc = "Struct that represents JSON that is sent to the LibreTranslator API"]
+    #[doc = "Модель запроса к LibreTranslate"]
     struct LibreTranslateJsonRequest {
         #[serde(rename = "q")]
         pub word: String,
@@ -138,7 +138,8 @@ pub mod web_api {
     }
 }
 
-#[doc = "Module with functionality that is related to parsing JSON Dictionary files"]
+#[doc = "Парсер для JSON словарей (А также некоторые фичи для preprocess)"]
+//TODO: Вынести функции, используемые только в preprocess в отдельный модуль
 pub mod parser {
     use std::{
         fs,
@@ -155,13 +156,12 @@ pub mod parser {
 
     use crate::{errors::errors::StaticDictionaryErrors, types::Word};
 
-    #[doc = "Reads JSON from given file"]
+    #[doc = "Считывает JSON из словаря"]
     pub fn read_json_dictionary(file_name: &str) -> Result<serde_json::Value, serde_json::Error> {
         serde_json::from_str(&fs::read_to_string(file_name).unwrap())
     }
 
-    #[doc = "Returns list of tags, that is used in dictionary"]
-    //TODO: Replace with correct error type
+    #[doc = "Парсит список тегов из JSON словаря"]
     pub fn get_tags_from_dictionary(
         dictionary: serde_json::Value,
     ) -> Result<Vec<String>, StaticDictionaryErrors> {
@@ -173,7 +173,7 @@ pub mod parser {
         }
     }
 
-    #[doc = "Returns filepath of dictionary based on the language input"]
+    #[doc = "Возвращает путь к словарю на определенном языке"]
     pub fn get_dictionary_by_lang(
         dictionary_path: &str,
         lang: &str,
@@ -191,47 +191,12 @@ pub mod parser {
 
         Err(StaticDictionaryErrors::IOError(io::Error::new(
             io::ErrorKind::NotFound,
-            "Dictionary file is not found",
+            "Файл словаря не найден",
         )))
     }
 
-    #[doc = "Parses json file into Vec<Word>"]
-    //TODO: Replace with correct error type
-    pub fn parse_json_into_words(dictionary_dir: &str, language: &str) -> Result<Vec<Word>, ()> {
-        let filename = get_dictionary_by_lang(dictionary_dir, language);
-        let json = if filename.is_ok() {
-            let path = format!("{}/", dictionary_dir.to_owned()) + &filename.unwrap();
-            read_json_dictionary(&path)
-        } else {
-            return Err(());
-        };
-
-        match json {
-            Ok(data) => {
-                let data_clone = data.clone();
-                let keys = get_tags_from_dictionary(data);
-                match keys {
-                    Ok(tags) => {
-                        return Ok(tags
-                            .par_iter()
-                            .map(|tag| {
-                                let tag_data = data_clone.get(tag).unwrap();
-                                Word::new(
-                                    tag_data.get("word").unwrap().to_string(),
-                                    tag.to_owned(),
-                                    language.to_owned(),
-                                )
-                            })
-                            .collect::<Vec<Word>>());
-                    }
-                    Err(_) => Err(()),
-                }
-            }
-            Err(_) => Err(()),
-        }
-    }
-
-    #[doc = "Returns path to the basic dictionary"]
+    
+    #[doc = "Возвращает путь к базовому словарю"]
     pub fn get_basic_dictionary(dictionary_dir: &str) -> Result<String, StaticDictionaryErrors> {
         let dictionary_list_dir = fs::read_dir(dictionary_dir)?;
 
@@ -244,13 +209,10 @@ pub mod parser {
             }
         }
 
-        Err(StaticDictionaryErrors::IOError(io::Error::new(
-            io::ErrorKind::NotFound,
-            "Basic dictionary is not found",
-        )))
+        Err(StaticDictionaryErrors::BasicDictionaryNotFound)
     }
 
-    #[doc = "Generates empty dictionaries, based on basic dictionaries, for manual translation (Preprocessor feature, do not use in static mode!)"]
+    #[doc = "(Только для preprocess) Создает пустые словари на основе базового словаря"]
     pub fn generate_empty_dictionaries(
         dictionary_path: String,
         languages: Vec<String>,
@@ -292,7 +254,7 @@ pub mod parser {
         Ok(())
     }
 
-    #[doc = "Returns a language of dictionary"]
+    #[doc = "Возвращает язык файла словаря"]
     pub fn get_dictionary_language(dictionary_name: &str) -> Result<String, ()> {
         let pattern = Regex::new(r"^dictionary-(.+?)(?:\.base)?\.json$").unwrap();
         if let Some(captures) = pattern.captures(dictionary_name) {
@@ -305,9 +267,32 @@ pub mod parser {
             Err(())
         }
     }
+
+    #[doc = "Парсит JSON файл в Vec<Word>"]
+    pub fn parse_json_into_words(
+        dictionary_dir: &str,
+        language: &str,
+    ) -> Result<Vec<Word>, StaticDictionaryErrors> {
+        let filename = get_dictionary_by_lang(dictionary_dir, language)?;
+        let path = format!("{}/", dictionary_dir.to_owned()) + &filename;
+        let json = read_json_dictionary(&path)?;
+        let json_clone = json.clone();
+        let keys = get_tags_from_dictionary(json)?;
+        Ok(keys
+            .par_iter()
+            .map(|tag| {
+                let tag_data = json_clone.get(tag).unwrap();
+                Word::new(
+                    tag_data.get("word").unwrap().to_string(),
+                    tag.to_owned(),
+                    language.to_owned(),
+                )
+            })
+            .collect::<Vec<Word>>())
+    }
 }
 
-#[doc = "Module with items related to generating and parsing static dictionaries"]
+#[doc = "Функционал для генерации и парсинга static-словарей"]
 pub mod static_translate {
     use std::fs;
     use std::sync::{Arc, Mutex};
@@ -321,7 +306,8 @@ pub mod static_translate {
     use crate::parser::get_dictionary_language;
     use crate::types::Word;
 
-    #[doc = "Parses list of words into Vec<String>. If language is not provided, it will parse basic dictionary"]
+    #[doc = "Парсит список слов в Vec<Word>. Если не передан аргумент с названием языка, то будут получены слова из базового словаря"]
+    //TODO: Переписать так, чтобы парсился ТОЛЬКО БАЗОВЫЙ СЛОВАРЬ
     pub fn parse_static_dictionary(
         dictionary_dir: &str,
         lang: Option<&str>,
@@ -353,8 +339,8 @@ pub mod static_translate {
         }
     }
 
-    #[doc = "Generates empty dictionaries from basic static dictionary"]
-    //TODO: Rewrite with custom implementation using thread scopes
+    #[doc = "Генерирует пустые статические словари из базового статического словаря"]
+    //TODO: Переписать с кастомной имплементацией параллелизма с thread scope
     pub fn generate_empty_dictionaries_from_static_basic(
         dictionary_dir: &str,
         languages: Vec<String>,
@@ -377,12 +363,16 @@ pub mod static_translate {
         );
 
         languages.par_iter().for_each(|language| {
-            
             if check_dictionary_exists(dictionary_dir, language) {
-                fs::remove_file(format!("{}/dictionary-{}.json", dictionary_dir, language)).unwrap();
+                fs::remove_file(format!("{}/dictionary-{}.json", dictionary_dir, language))
+                    .unwrap();
             }
             let file =
-                fs::File::create_new(format!("{}/dictionary-{}.json", dictionary_dir, language)).expect(&format!("Произошла ошибка при попытке создать файл словаря dictionary-{}.json", language));
+                fs::File::create_new(format!("{}/dictionary-{}.json", dictionary_dir, language))
+                    .expect(&format!(
+                        "Произошла ошибка при попытке создать файл словаря dictionary-{}.json",
+                        language
+                    ));
             let json_object = Arc::new(Mutex::new(serde_json::json!({})));
             let words = Arc::clone(&words);
             words.par_iter().for_each(|word| {
@@ -395,7 +385,7 @@ pub mod static_translate {
     }
 }
 
-#[doc = "Module with functionality for working with directories with dictionaries"]
+#[doc = "Модуль с функциями для работы с репозиториями словарей"]
 pub mod file_system {
     use std::{
         fs::{self, File},
@@ -404,7 +394,7 @@ pub mod file_system {
 
     use crate::errors::errors::StaticDictionaryErrors;
 
-    #[doc = "Initialize a new directory with basic static dictionary"]
+    #[doc = "Инициализирует новый репозиторий словарей"]
     pub fn init_new_dictionary_system(
         parent: Option<String>,
         basic_language: String,
@@ -433,11 +423,8 @@ pub mod file_system {
         Ok(())
     }
 
-    #[doc = "Checks that dictionary for specific language exists"]
-    pub fn check_dictionary_exists(
-        dictionary_path: &str,
-        language: &str,
-    ) -> bool {
+    #[doc = "Проверяет наличие словаря определенного языка в репозитории"]
+    pub fn check_dictionary_exists(dictionary_path: &str, language: &str) -> bool {
         Path::new(&format!("{}/dictionary-{}.json", dictionary_path, language)).exists()
     }
 }

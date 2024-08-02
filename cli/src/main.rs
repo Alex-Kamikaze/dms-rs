@@ -19,7 +19,7 @@ async fn main() -> Result<(), reqwest::Error> {
             match translate_type {
                 TranslateType::Manual(arguments) => {
                     println!(
-                        "Generating empty dictionaries for languages {:?}",
+                        "Генерируются пустые словари для языков {:?}",
                         &arguments.languages
                     );
                     let generate_result = generate_empty_dictionaries_from_static_basic(
@@ -28,33 +28,31 @@ async fn main() -> Result<(), reqwest::Error> {
                     );
                     match generate_result {
                     Ok(()) => {
-                        println!("Finished generating empty dictionaries");
+                        println!("Пустые словари успешно сгенерированы!");
                     }
                     Err(err) => {
-                        match err {api::errors::errors::StaticDictionaryErrors::BasicDictionaryNotFound=> { println!("Error occured: Cannot find empty dictionary") }
-                            api::errors::errors::StaticDictionaryErrors::JSONParsingError(_) => { println!("Error occured: JSON parsing failed due to error in dictionary file") },
-                            api::errors::errors::StaticDictionaryErrors::APIError(_) => { println!("Error occured: Problems with calling API")},
-                            api::errors::errors::StaticDictionaryErrors::IOError(_) => { println!("Error occured: Cannot create files")}, }
+                        match err {api::errors::errors::StaticDictionaryErrors::BasicDictionaryNotFound=> { println!("Ошибка: Не удалось найти базовый словарь!") }
+                            api::errors::errors::StaticDictionaryErrors::JSONParsingError(_) => { println!("Ошибка: Не удалось спарсить JSON файл словаря!") },
+                            api::errors::errors::StaticDictionaryErrors::APIError(_) => { println!("Ошибка: Ошибка при обращении к API!")},
+                            api::errors::errors::StaticDictionaryErrors::IOError(_) => { println!("Ошибка: Не удалось создать файлы!")}, }
                     }
                 }
                 }
                 //TODO: Implement auto translation for static dictionaries with LibreTranslate
-                TranslateType::Auto(arguments) => {
-                    
-                }
+                TranslateType::Auto(arguments) => {}
             }
         }
 
         Init(args) => match init_new_dictionary_system(args.directory, args.basic_language) {
             Ok(_) => {
-                println!("New dictionary system initialized successfully");
+                println!("Новый репозиторий словарей создан успешно");
             }
             Err(error) => match error {
                 api::errors::errors::StaticDictionaryErrors::BasicDictionaryNotFound => {}
                 api::errors::errors::StaticDictionaryErrors::JSONParsingError(_) => {}
                 api::errors::errors::StaticDictionaryErrors::APIError(_) => {}
                 api::errors::errors::StaticDictionaryErrors::IOError(_) => {
-                    println!("Error occured while initializing dictionary system. Perhaps, you already have initialized `dictionaries` directory in the same place")
+                    println!("Произошла ошибка при инициализации нового репозитория словарей. Возможно, у вас уже создан репозиторий в директории, где вы пытаетесь его создать")
                 }
             },
         },
