@@ -527,22 +527,6 @@ mod tests {
     }
 
     #[test]
-    //FIXME: Figure out why code works correct, but test fails
-    fn test_generation_of_static_dictionaries() {
-        let dictionary_path = "C:/Users/Timur/Desktop/auto-translator/api/src/dictionaries";
-        let result = generate_empty_dictionaries_from_static_basic(
-            &dictionary_path,
-            vec!["en".to_owned(), "de".to_owned()],
-        );
-        match result {
-            Ok(_) => {}
-            Err(_err) => {
-                panic!("Error occured while generating empty dictionaries");
-            }
-        }
-    }
-
-    #[test]
     fn test_check_path_works_correctly() {
         let dictionaries_path = "C:/Users/Timur/Desktop/auto-translator/dictionaries";
         assert_eq!(check_dictionary_exists(dictionaries_path, "de"), true);

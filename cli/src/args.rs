@@ -25,7 +25,8 @@ pub mod cli_args {
         Manual(ManualTranslationArgs),
 
         /// Сгенерировать пустые словари на основе базового, а потом перевести их с помощью одного из API
-        Auto(AutoTranslationArgs),
+        #[clap(subcommand)]
+        Auto(ApiVariants),
     }
 
     #[derive(Debug, Args)]
@@ -37,15 +38,27 @@ pub mod cli_args {
         pub languages: Vec<String>,
     }
 
+    
+
+    #[derive(Subcommand, Debug)]
+    #[doc = "Варианты API для автоперевода"]
+    pub enum  ApiVariants {
+        /// Перевод с использованием LibreTranslate API
+        Libretranslate(AutoTranslationArgs),
+
+        /// Перевод с использованиеим DeepL API
+        Deepl(AutoTranslationArgs)
+    }
+
     #[derive(Debug, Args)]
     #[doc = "Аргументы для команды translate auto"]
     pub struct AutoTranslationArgs {
-        /// API, которое будет использоваться для автоперевода
-        // TODO: Replace with seperate implementations of API's
-        pub translator_api: String,
         /// Языки для перевода
         pub languages: Vec<String>,
+        /// API ключ для тех, кому он требуется
+        pub api_key: Option<String>
     }
+
 
     #[derive(Debug, Args)]
     #[doc = "Аргументы для команды init"]
