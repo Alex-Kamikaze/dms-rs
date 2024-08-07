@@ -1,4 +1,5 @@
 pub mod cli_args {
+    use api::types::ApiArgs;
     use clap::{builder::Str, Args, Parser, Subcommand};
 
     #[derive(Parser, Debug)]
@@ -38,27 +39,28 @@ pub mod cli_args {
         pub languages: Vec<String>,
     }
 
-    
-
     #[derive(Subcommand, Debug)]
     #[doc = "Варианты API для автоперевода"]
-    pub enum  ApiVariants {
+    pub enum ApiVariants {
         /// Перевод с использованием LibreTranslate API
         Libretranslate(AutoTranslationArgs),
 
         /// Перевод с использованиеим DeepL API
-        Deepl(AutoTranslationArgs)
+        Deepl(AutoTranslationArgs),
     }
 
-    #[derive(Debug, Args)]
+    #[derive(Debug, Args, Clone)]
     #[doc = "Аргументы для команды translate auto"]
+    // TODO: Заменить на разные аргументы для разных реализаций API
     pub struct AutoTranslationArgs {
+        /// Директория репозитория словарей
+        pub dictionaries_path: String,
         /// Языки для перевода
         pub languages: Vec<String>,
         /// API ключ для тех, кому он требуется
-        pub api_key: Option<String>
+        #[arg(last(true))]
+        pub api_key: Option<String>,
     }
-
 
     #[derive(Debug, Args)]
     #[doc = "Аргументы для команды init"]
@@ -67,5 +69,11 @@ pub mod cli_args {
         pub basic_language: String,
         /// Директория, где будет инициализирован репозиторий
         pub directory: Option<String>,
+    }
+
+    impl AutoTranslationArgs {
+        pub fn into_api_args(self) -> api::types::ApiArgs {
+            ApiArgs::new(self.api_key, "http://127.0.0.1:5000".to_owned())
+        }
     }
 }

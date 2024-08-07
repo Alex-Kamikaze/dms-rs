@@ -6,7 +6,7 @@ pub mod errors;
 #[doc = "Типы данных, которые используются во всех частях API"]
 pub mod types {
     use serde::{Deserialize, Serialize};
-    use std::fmt::Display;
+    use std::{default, fmt::Display};
 
     use crate::errors::errors::StaticDictionaryErrors;
 
@@ -25,6 +25,31 @@ pub mod types {
         pub word: String,
         pub tag: String,
         pub language: String,
+    }
+
+    #[doc = "Варианты API переводчиков для передачи в функции автоматических переводчиков"]
+    #[derive(Debug, Clone, Default)]
+    pub enum TranslatorApis {
+        #[default]
+        LibreTranslate,
+        DeepL,
+        Yandex,
+    }
+
+    #[doc = "Аргументы для API автоперевода"]
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct ApiArgs {
+        pub api_key: Option<String>,
+        pub host: String
+    }
+
+    impl ApiArgs {
+        pub fn new(api_key: Option<String>, host: String) -> ApiArgs {
+            ApiArgs {
+                api_key,
+                host
+            }
+        }
     }
 
     impl Word {
@@ -195,7 +220,6 @@ pub mod parser {
         )))
     }
 
-    
     #[doc = "Возвращает путь к базовому словарю"]
     pub fn get_basic_dictionary(dictionary_dir: &str) -> Result<String, StaticDictionaryErrors> {
         let dictionary_list_dir = fs::read_dir(dictionary_dir)?;
@@ -296,7 +320,9 @@ pub mod parser {
 pub mod static_translate {
     use std::fs;
     use std::sync::{Arc, Mutex};
+    use std::collections::HashMap;
 
+    use futures::future::join_all;
     use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
     use serde_json::Value;
 
@@ -304,23 +330,24 @@ pub mod static_translate {
     use crate::file_system::check_dictionary_exists;
     use crate::parser::get_basic_dictionary;
     use crate::parser::get_dictionary_language;
-    use crate::types::Word;
+    use crate::types::ApiArgs;
+    use crate::types::{TranslatorApi, TranslatorApis, Word};
+    use crate::web_api::LibreTranslateApi;
 
     #[doc = "Парсит список слов в Vec<Word>. Если не передан аргумент с названием языка, то будут получены слова из базового словаря"]
     pub fn parse_static_basic_dictionary(
-        dictionary_dir: &str
+        dictionary_dir: &str,
     ) -> Result<Vec<String>, StaticDictionaryErrors> {
-            let basic_dictionary = get_basic_dictionary(dictionary_dir)?;
-            let file_content =
-                fs::read_to_string(format!("{}/{}", dictionary_dir, basic_dictionary))?;
-            let json_object: Value = serde_json::from_str(&file_content)?;
-            Ok(json_object
-                .as_array()
-                .unwrap()
-                .par_iter()
-                .map(|v| v.as_str().unwrap().to_owned())
-                .collect::<Vec<String>>())
-        }
+        let basic_dictionary = get_basic_dictionary(dictionary_dir)?;
+        let file_content = fs::read_to_string(format!("{}/{}", dictionary_dir, basic_dictionary))?;
+        let json_object: Value = serde_json::from_str(&file_content)?;
+        Ok(json_object
+            .as_array()
+            .unwrap()
+            .par_iter()
+            .map(|v| v.as_str().unwrap().to_owned())
+            .collect::<Vec<String>>())
+    }
 
     #[doc = "Генерирует пустые статические словари из базового статического словаря"]
     pub fn generate_empty_dictionaries_from_static_basic(
@@ -347,7 +374,7 @@ pub mod static_translate {
         languages.par_iter().for_each(|language| {
             if check_dictionary_exists(dictionary_dir, language) {
                 fs::remove_file(format!("{}/dictionary-{}.json", dictionary_dir, language))
-                    .unwrap();
+                    .expect(&format!("Произошла ошибка при попытке удаления существующего словаря dictionary-{}.json", language));
             }
             let file =
                 fs::File::create_new(format!("{}/dictionary-{}.json", dictionary_dir, language))
@@ -363,6 +390,97 @@ pub mod static_translate {
             });
             serde_json::to_writer_pretty(&file, &*json_object.lock().unwrap()).unwrap();
         });
+        Ok(())
+    }
+
+    #[doc = "Генериует статические словари на основе базового, а потом автоматически их переводит с помощью выбранного автопереводчика"]
+    // Когда я писал это, только двое знали что тут вообще творится - это я и Бог. Сейчас только Бог знает, что здесь происходит....
+    // А не, кажись я допер че я тут понаписал
+    pub async fn autotranslate_from_basic_dictionary(
+        dictionary_dir: &str,
+        target_languages: Vec<String>,
+        translator_api: TranslatorApis,
+        api_args: ApiArgs,
+    ) -> Result<(), StaticDictionaryErrors> {
+        let mut basic_dictionary = parse_static_basic_dictionary(dictionary_dir)?;
+        basic_dictionary.dedup();
+        let words = Arc::new(
+            basic_dictionary
+                .par_iter()
+                .map(|word| {
+                    Word::new(
+                        word.to_owned(),
+                        word.to_owned(),
+                        get_dictionary_language(&get_basic_dictionary(dictionary_dir).unwrap())
+                            .unwrap(),
+                    )
+                    .to_owned()
+                })
+                .collect::<Vec<Word>>(),
+        );
+
+        let translator = Arc::new(match translator_api {
+            TranslatorApis::LibreTranslate => LibreTranslateApi::new(api_args.host),
+            TranslatorApis::DeepL => todo!(),
+            TranslatorApis::Yandex => todo!(),
+        });
+
+        let mut tasks = vec![];
+
+        for target_language in target_languages.clone() {
+            let words = Arc::clone(&words);
+            let translator = Arc::clone(&translator);
+
+            for word in &*words.clone() {
+                let word = word.clone();
+                let translator = Arc::clone(&translator);
+                let target_language = target_language.to_string();
+
+                let task = tokio::spawn(async move {
+                    translator
+                        .translate_word_with_tag(word, target_language)
+                        .await
+                });
+                tasks.push(task);
+            }
+        }
+
+        let results = join_all(tasks).await;
+        let mut words_with_languages_hashmap: HashMap<String, Vec<Word>> = HashMap::new();
+        target_languages.clone()
+            .iter()
+            .for_each(|language| {
+                words_with_languages_hashmap.insert(language.to_owned(), vec![]);
+            });
+        for join_result in results {
+            match join_result {
+                Ok(request_result) => {
+                    let word = request_result?;
+                    words_with_languages_hashmap.get_mut(&word.language).expect(&format!("Не найден ключ {}", word.tag)).push(word.clone());
+                }
+                Err(err) => return Err(StaticDictionaryErrors::AsyncError(err)),
+            }
+        }
+
+        for (language, words) in &words_with_languages_hashmap {
+            if check_dictionary_exists(dictionary_dir, language) {
+                fs::remove_file(format!("{}/dictionary-{}.json", dictionary_dir, language))?;
+            }
+            let file =
+                fs::File::create_new(format!("{}/dictionary-{}.json", dictionary_dir, language))
+                    .expect(&format!(
+                        "Произошла ошибка при попытке создать файл словаря dictionary-{}.json",
+                        language
+                    ));
+                    let json_object = Arc::new(Mutex::new(serde_json::json!({})));
+                    let words = Arc::new(words);
+                    words.par_iter().for_each(|word| {
+                        let mut json_object = json_object.lock().unwrap();
+                        json_object[word.clone().tag] = word.word.replace("\"", "").clone().into();
+                    });
+                    serde_json::to_writer_pretty(&file, &*json_object.lock().unwrap())?;
+        }
+
         Ok(())
     }
 }

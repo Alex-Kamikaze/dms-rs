@@ -18,5 +18,7 @@ pub mod errors {
         /// Обертка для типа io::Error
         #[error("Произошла ошибка при работе с файлом словаря")]
         IOError(#[from] io::Error),
+        #[error("Произошла ошибка при выполнении асинхронной операции")]
+        AsyncError(#[from] tokio::task::JoinError),
     }
 }
