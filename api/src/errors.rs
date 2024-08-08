@@ -21,4 +21,17 @@ pub mod errors {
         #[error("Произошла ошибка при выполнении асинхронной операции")]
         AsyncError(#[from] tokio::task::JoinError),
     }
+
+    #[derive(Error, Debug)]
+    #[doc = "Кастомные типы ошибок и обертки для внешних типов ошибок, которые могут возникать при работе с системой сборки итоговых словарей"]
+    pub enum BuildSystemErrors {
+        #[error("Произошла ошибка при работе с файловой системой")]
+        IOError(#[from] io::Error),
+        #[error("Произошла ошибка при компиляции регулярного выражения")]
+        RegexError(#[from] regex::Error),
+        #[error("Произошла ошибка в системе статических словарей")]
+        StaticDictionaryError(#[from] StaticDictionaryErrors),
+        #[error("Произошла ошибка при работе с JSON")]
+        JSONError(#[from] serde_json::Error)
+    }
 }

@@ -3,7 +3,7 @@ pub mod cli_args {
     use clap::{builder::Str, Args, Parser, Subcommand};
 
     #[derive(Parser, Debug)]
-    #[clap(version = "0.1 Experimental", about = "Утилита для управления репозиторием JSON-словарей и переводом в ручном или автоматическом режиме", long_about = None)]
+    #[clap(version = "0.2 Experimental", about = "Утилита для управления репозиторием JSON-словарей и переводом в ручном или автоматическом режиме", long_about = None)]
     #[doc = "Парсер CLI-аргументов"]
     pub struct TranslatorCli {
         #[clap(subcommand)]
@@ -17,6 +17,9 @@ pub mod cli_args {
         Translate(TranslateType),
         /// Инициализировать новый репозиторий словарей
         Init(InitializeArguments),
+        #[clap(subcommand)]
+        /// Собрать из репозитория словарей файлы в другой формат для проекта
+        Build(FrameworkType)
     }
 
     #[derive(Debug, Subcommand)]
@@ -28,6 +31,13 @@ pub mod cli_args {
         /// Сгенерировать пустые словари на основе базового, а потом перевести их с помощью одного из API
         #[clap(subcommand)]
         Auto(ApiVariants),
+    }
+
+    #[derive(Debug, Subcommand)]
+    #[doc = "Варианты фреймворков для сборки словарей"]
+    pub enum FrameworkType {
+        /// Сборка в словари, совместимые с фреймворком i18next
+        I18next(BuildArgs)
     }
 
     #[derive(Debug, Args)]
@@ -43,7 +53,7 @@ pub mod cli_args {
     #[doc = "Варианты API для автоперевода"]
     pub enum ApiVariants {
         /// Перевод с использованием LibreTranslate API
-        Libretranslate(AutoTranslationArgs),
+        Libretranslate(LibreTranslateArgs),
 
         /// Перевод с использованиеим DeepL API
         Deepl(AutoTranslationArgs),
@@ -51,6 +61,7 @@ pub mod cli_args {
 
     #[derive(Debug, Args, Clone)]
     #[doc = "Аргументы для команды translate auto"]
+    #[deprecated(since = "0.2.0", note = "Используйте разные реализации структур аргументов (LibreTranslateArgs)")]
     // TODO: Заменить на разные аргументы для разных реализаций API
     pub struct AutoTranslationArgs {
         /// Директория репозитория словарей
@@ -62,6 +73,17 @@ pub mod cli_args {
         pub api_key: Option<String>,
     }
 
+    #[derive(Debug, Args, Clone)]
+    #[doc = "Аргументы, передаваемые в LibreTranslate API"]
+    pub struct LibreTranslateArgs {
+        /// Директория с репозиторием словарей
+        pub dictionaries_path: String, 
+        /// Хостинг LibreTranslate
+        pub host: String,
+        /// Языки для перевода
+        pub languages: Vec<String>
+    }
+
     #[derive(Debug, Args)]
     #[doc = "Аргументы для команды init"]
     pub struct InitializeArguments {
@@ -71,9 +93,21 @@ pub mod cli_args {
         pub directory: Option<String>,
     }
 
-    impl AutoTranslationArgs {
-        pub fn into_api_args(self) -> api::types::ApiArgs {
-            ApiArgs::new(self.api_key, "http://127.0.0.1:5000".to_owned())
+    impl Into<ApiArgs> for LibreTranslateArgs {
+        fn into(self) -> ApiArgs {
+            ApiArgs::new(None, self.host)
         }
     }
+
+    #[derive(Debug, Clone, Args)]
+    #[doc = "Аргументы, которые передаются в функции сборки итоговых словарей для конкретных фреймворков"]
+    pub struct BuildArgs {
+        /// Директория с репозиторием словарей
+        pub dictionary_path: String,
+        /// Директория с итоговыми словарями
+        pub output_directory: String,
+        /// По умолчанию, утилита будет собирать все словари, если нужно обновить какой-то конкретный, то можно указать их список при сборке
+        pub languages: Option<Vec<String>>
+    }
+
 }

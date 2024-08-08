@@ -6,7 +6,7 @@ pub mod errors;
 #[doc = "Типы данных, которые используются во всех частях API"]
 pub mod types {
     use serde::{Deserialize, Serialize};
-    use std::{default, fmt::Display};
+    use std::fmt::Display;
 
     use crate::errors::errors::StaticDictionaryErrors;
 
@@ -19,7 +19,7 @@ pub mod types {
         ) -> Result<Word, StaticDictionaryErrors>;
     }
 
-    #[derive(Serialize, Deserialize, Default, Clone)]
+    #[derive(Serialize, Deserialize, Default, Clone, Debug)]
     #[doc = "Промежуточная модель между JSON-словарями и API"]
     pub struct Word {
         pub word: String,
@@ -237,6 +237,7 @@ pub mod parser {
     }
 
     #[doc = "(Только для preprocess) Создает пустые словари на основе базового словаря"]
+    #[deprecated(since = "0.2.0", note = "Структура словарей для препроцессинга изменена, и используется старый способ парарллелилзации")]
     pub fn generate_empty_dictionaries(
         dictionary_path: String,
         languages: Vec<String>,
@@ -347,6 +348,19 @@ pub mod static_translate {
             .par_iter()
             .map(|v| v.as_str().unwrap().to_owned())
             .collect::<Vec<String>>())
+    }
+
+    #[doc = "Парсит дочерний словарь и возвращает вектор с структурами типа Word"]
+    pub fn parse_translated_dictionary(dictionary_dir: &str, language: &str) -> Result<Vec<Word>, StaticDictionaryErrors> {
+        let file_content = fs::read_to_string(format!("{}/dictionary-{}.json", dictionary_dir, language))?;
+        let json_object: Value = serde_json::from_str(&file_content)?;
+        let dictionary = json_object.as_object().unwrap();
+        let mut result: Vec<Word> = vec![];
+        for (tag, word) in dictionary {
+            result.push(Word::new(word.to_string(), tag.to_owned(), language.to_owned()));
+        } 
+        
+        Ok(result)
     }
 
     #[doc = "Генерирует пустые статические словари из базового статического словаря"]
@@ -492,7 +506,9 @@ pub mod file_system {
         path::Path,
     };
 
-    use crate::errors::errors::StaticDictionaryErrors;
+    use regex;
+
+    use crate::errors::errors::{BuildSystemErrors, StaticDictionaryErrors};
 
     #[doc = "Инициализирует новый репозиторий словарей"]
     pub fn init_new_dictionary_system(
@@ -527,6 +543,76 @@ pub mod file_system {
     pub fn check_dictionary_exists(dictionary_path: &str, language: &str) -> bool {
         Path::new(&format!("{}/dictionary-{}.json", dictionary_path, language)).exists()
     }
+
+    #[doc = "Возвращает список всех словарей в репозитории"]
+    // TODO: Заменить на другой тип ошибки
+    pub fn find_all_dictionaries_in_repository(dictionary_path: &str) -> Result<Vec<String>, BuildSystemErrors> {
+        let paths = fs::read_dir(dictionary_path)?;
+        let pattern = regex::Regex::new(r"^dictionary-(.+?)(?:\.base)?\.json$")?;
+        let mut result: Vec<String> = vec![];
+        for file in paths {
+            match file {
+                Ok(path) => {
+                    let filename = path.file_name().into_string().unwrap();
+                    if pattern.is_match(&filename) {
+                        result.push(filename);
+                    }
+                    return Ok(result) 
+                }
+                Err(error) => return Err(BuildSystemErrors::IOError(error))
+            }
+        }
+        Ok(result)
+    }
+}
+
+#[doc = "Модули и утилиты для сборки итоговых словарей"]
+pub mod build_system {
+    
+    #[doc = "Интеграция с фреймворком i18next"]
+    pub mod i18next_integration {
+        use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+
+        use crate::errors::errors::BuildSystemErrors;
+        use crate::file_system::{check_dictionary_exists, find_all_dictionaries_in_repository};
+        use crate::static_translate::parse_translated_dictionary;
+        use std::fmt::format;
+        use std::fs;
+        use std::sync::{Arc, Mutex};
+
+        #[doc = "Функция для сборки словарей из репозитория в итоговые словари для i18next"]
+        pub fn build_for_i18next(dictionary_dir: &str, output_directory: &str, languages: Option<Vec<String>>) -> Result<(), BuildSystemErrors> {
+            match languages {
+                Some(languages) => {
+                    languages
+                        .par_iter()
+                        .try_for_each(|language| -> Result<(), BuildSystemErrors>{
+                            let dictionary_content = parse_translated_dictionary(dictionary_dir, language)?;
+                            println!("{:?}", dictionary_content);
+                            fs::create_dir_all(format!("{}/{}", output_directory, language))?;
+                            let build_dictionary = fs::File::create_new(format!("{}/{}/translation.json", output_directory, language))?;
+                            let json_content = Arc::new(Mutex::new(serde_json::json!({})));
+                            
+                            dictionary_content
+                                .par_iter()
+                                .try_for_each(|word| -> Result<(), BuildSystemErrors> {
+                                    let mut json_object = json_content.lock().unwrap();
+                                    json_object[&word.tag] = word.word.replace("\"", "").clone().into();
+                                    Ok(())
+                                })?;
+
+                            serde_json::to_writer_pretty(&build_dictionary, &*json_content.lock().unwrap())?;
+                            Ok(())
+                        })?
+                }
+                None => {
+                    let dictionaries = find_all_dictionaries_in_repository(dictionary_dir)?;
+                    todo!()
+                } 
+            }
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -538,7 +624,6 @@ mod tests {
     use crate::parser::get_dictionary_by_lang;
     use crate::parser::get_tags_from_dictionary;
     use crate::parser::read_json_dictionary;
-    use crate::static_translate::generate_empty_dictionaries_from_static_basic;
     use crate::static_translate::parse_static_basic_dictionary;
     use crate::web_api::LibreTranslateApi;
 
