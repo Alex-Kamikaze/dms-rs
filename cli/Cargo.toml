@@ -1,6 +1,6 @@
 [package]
 name = "cli"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 authors = ["Alexander Karavaichik <sashagameac@gmail.com>"]
 description = "CLI Utility for the auto-translator project"
