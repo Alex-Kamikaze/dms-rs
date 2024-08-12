@@ -632,7 +632,6 @@ pub mod build_system {
                 .par_iter()
                 .try_for_each(|language| -> Result<(), BuildSystemErrors> {
                     let dictionary_content = parse_translated_dictionary(dictionary_dir, language)?;
-                    println!("{:?}", dictionary_content);
                     fs::create_dir_all(format!("{}/{}", output_directory, language))?;
                     let build_dictionary = fs::File::create_new(format!(
                         "{}/{}/translation.json",

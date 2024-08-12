@@ -199,16 +199,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 
 [[package]]
-name = "cli"
-version = "0.3.0"
-dependencies = [
- "api",
- "clap",
- "reqwest",
- "tokio",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -254,6 +244,16 @@ name = "crossbeam-utils"
 version = "0.8.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22ec99545bb0ed0ea7bb9b8e1e9122ea386ff8a48c0922e43f36d45ab09e0e80"
+
+[[package]]
+name = "dms"
+version = "0.3.0"
+dependencies = [
+ "api",
+ "clap",
+ "reqwest",
+ "tokio",
+]
 
 [[package]]
 name = "either"

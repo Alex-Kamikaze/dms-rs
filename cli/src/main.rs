@@ -51,8 +51,6 @@ async fn main() -> Result<(), reqwest::Error> {
                     match api {
                         ApiVariants::Libretranslate(args) => {
                             let args_clone = args.clone();
-                            println!("{}", args.host);
-                            println!("{}", args.dictionaries_path);
                             let result = autotranslate_from_basic_dictionary(
                                 &args.dictionaries_path,
                                 args.languages,

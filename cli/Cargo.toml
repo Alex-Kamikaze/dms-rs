@@ -1,5 +1,5 @@
 [package]
-name = "cli"
+name = "dms"
 version = "0.3.0"
 edition = "2021"
 authors = ["Alexander Karavaichik <sashagameac@gmail.com>"]
