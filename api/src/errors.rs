@@ -20,6 +20,8 @@ pub mod errors {
         IOError(#[from] io::Error),
         #[error("Произошла ошибка при выполнении асинхронной операции")]
         AsyncError(#[from] tokio::task::JoinError),
+        #[error("Ошибка при работе с регулярными выражениями")]
+        RegexError(#[from] regex::Error),
     }
 
     #[derive(Error, Debug)]
@@ -32,6 +34,6 @@ pub mod errors {
         #[error("Произошла ошибка в системе статических словарей")]
         StaticDictionaryError(#[from] StaticDictionaryErrors),
         #[error("Произошла ошибка при работе с JSON")]
-        JSONError(#[from] serde_json::Error)
+        JSONError(#[from] serde_json::Error),
     }
 }

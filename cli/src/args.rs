@@ -19,7 +19,7 @@ pub mod cli_args {
         Init(InitializeArguments),
         #[clap(subcommand)]
         /// Собрать из репозитория словарей файлы в другой формат для проекта
-        Build(FrameworkType)
+        Build(FrameworkType),
     }
 
     #[derive(Debug, Subcommand)]
@@ -37,7 +37,7 @@ pub mod cli_args {
     #[doc = "Варианты фреймворков для сборки словарей"]
     pub enum FrameworkType {
         /// Сборка в словари, совместимые с фреймворком i18next
-        I18next(BuildArgs)
+        I18next(BuildArgs),
     }
 
     #[derive(Debug, Args)]
@@ -61,7 +61,10 @@ pub mod cli_args {
 
     #[derive(Debug, Args, Clone)]
     #[doc = "Аргументы для команды translate auto"]
-    #[deprecated(since = "0.2.0", note = "Используйте разные реализации структур аргументов (LibreTranslateArgs)")]
+    #[deprecated(
+        since = "0.2.0",
+        note = "Используйте разные реализации структур аргументов (LibreTranslateArgs)"
+    )]
     // TODO: Заменить на разные аргументы для разных реализаций API
     pub struct AutoTranslationArgs {
         /// Директория репозитория словарей
@@ -77,11 +80,11 @@ pub mod cli_args {
     #[doc = "Аргументы, передаваемые в LibreTranslate API"]
     pub struct LibreTranslateArgs {
         /// Директория с репозиторием словарей
-        pub dictionaries_path: String, 
+        pub dictionaries_path: String,
         /// Хостинг LibreTranslate
         pub host: String,
         /// Языки для перевода
-        pub languages: Vec<String>
+        pub languages: Vec<String>,
     }
 
     #[derive(Debug, Args)]
@@ -107,7 +110,6 @@ pub mod cli_args {
         /// Директория с итоговыми словарями
         pub output_directory: String,
         /// По умолчанию, утилита будет собирать все словари, если нужно обновить какой-то конкретный, то можно указать их список при сборке
-        pub languages: Option<Vec<String>>
+        pub languages: Option<Vec<String>>,
     }
-
 }

@@ -40,15 +40,12 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq)]
     pub struct ApiArgs {
         pub api_key: Option<String>,
-        pub host: String
+        pub host: String,
     }
 
     impl ApiArgs {
         pub fn new(api_key: Option<String>, host: String) -> ApiArgs {
-            ApiArgs {
-                api_key,
-                host
-            }
+            ApiArgs { api_key, host }
         }
     }
 
@@ -237,7 +234,10 @@ pub mod parser {
     }
 
     #[doc = "(Только для preprocess) Создает пустые словари на основе базового словаря"]
-    #[deprecated(since = "0.2.0", note = "Структура словарей для препроцессинга изменена, и используется старый способ парарллелилзации")]
+    #[deprecated(
+        since = "0.2.0",
+        note = "Структура словарей для препроцессинга изменена, и используется старый способ парарллелилзации"
+    )]
     pub fn generate_empty_dictionaries(
         dictionary_path: String,
         languages: Vec<String>,
@@ -319,9 +319,9 @@ pub mod parser {
 
 #[doc = "Функционал для генерации и парсинга static-словарей"]
 pub mod static_translate {
+    use std::collections::HashMap;
     use std::fs;
     use std::sync::{Arc, Mutex};
-    use std::collections::HashMap;
 
     use futures::future::join_all;
     use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -351,15 +351,23 @@ pub mod static_translate {
     }
 
     #[doc = "Парсит дочерний словарь и возвращает вектор с структурами типа Word"]
-    pub fn parse_translated_dictionary(dictionary_dir: &str, language: &str) -> Result<Vec<Word>, StaticDictionaryErrors> {
-        let file_content = fs::read_to_string(format!("{}/dictionary-{}.json", dictionary_dir, language))?;
+    pub fn parse_translated_dictionary(
+        dictionary_dir: &str,
+        language: &str,
+    ) -> Result<Vec<Word>, StaticDictionaryErrors> {
+        let file_content =
+            fs::read_to_string(format!("{}/dictionary-{}.json", dictionary_dir, language))?;
         let json_object: Value = serde_json::from_str(&file_content)?;
         let dictionary = json_object.as_object().unwrap();
         let mut result: Vec<Word> = vec![];
         for (tag, word) in dictionary {
-            result.push(Word::new(word.to_string(), tag.to_owned(), language.to_owned()));
-        } 
-        
+            result.push(Word::new(
+                word.to_string(),
+                tag.to_owned(),
+                language.to_owned(),
+            ));
+        }
+
         Ok(result)
     }
 
@@ -461,16 +469,17 @@ pub mod static_translate {
 
         let results = join_all(tasks).await;
         let mut words_with_languages_hashmap: HashMap<String, Vec<Word>> = HashMap::new();
-        target_languages.clone()
-            .iter()
-            .for_each(|language| {
-                words_with_languages_hashmap.insert(language.to_owned(), vec![]);
-            });
+        target_languages.clone().iter().for_each(|language| {
+            words_with_languages_hashmap.insert(language.to_owned(), vec![]);
+        });
         for join_result in results {
             match join_result {
                 Ok(request_result) => {
                     let word = request_result?;
-                    words_with_languages_hashmap.get_mut(&word.language).expect(&format!("Не найден ключ {}", word.tag)).push(word.clone());
+                    words_with_languages_hashmap
+                        .get_mut(&word.language)
+                        .expect(&format!("Не найден ключ {}", word.tag))
+                        .push(word.clone());
                 }
                 Err(err) => return Err(StaticDictionaryErrors::AsyncError(err)),
             }
@@ -486,13 +495,13 @@ pub mod static_translate {
                         "Произошла ошибка при попытке создать файл словаря dictionary-{}.json",
                         language
                     ));
-                    let json_object = Arc::new(Mutex::new(serde_json::json!({})));
-                    let words = Arc::new(words);
-                    words.par_iter().for_each(|word| {
-                        let mut json_object = json_object.lock().unwrap();
-                        json_object[word.clone().tag] = word.word.replace("\"", "").clone().into();
-                    });
-                    serde_json::to_writer_pretty(&file, &*json_object.lock().unwrap())?;
+            let json_object = Arc::new(Mutex::new(serde_json::json!({})));
+            let words = Arc::new(words);
+            words.par_iter().for_each(|word| {
+                let mut json_object = json_object.lock().unwrap();
+                json_object[word.clone().tag] = word.word.replace("\"", "").clone().into();
+            });
+            serde_json::to_writer_pretty(&file, &*json_object.lock().unwrap())?;
         }
 
         Ok(())
@@ -546,7 +555,9 @@ pub mod file_system {
 
     #[doc = "Возвращает список всех словарей в репозитории"]
     // TODO: Заменить на другой тип ошибки
-    pub fn find_all_dictionaries_in_repository(dictionary_path: &str) -> Result<Vec<String>, BuildSystemErrors> {
+    pub fn find_all_dictionaries_in_repository(
+        dictionary_path: &str,
+    ) -> Result<Vec<String>, BuildSystemErrors> {
         let paths = fs::read_dir(dictionary_path)?;
         let pattern = regex::Regex::new(r"^dictionary-(.+?)(?:\.base)?\.json$")?;
         let mut result: Vec<String> = vec![];
@@ -557,59 +568,92 @@ pub mod file_system {
                     if pattern.is_match(&filename) {
                         result.push(filename);
                     }
-                    return Ok(result) 
+                    return Ok(result);
                 }
-                Err(error) => return Err(BuildSystemErrors::IOError(error))
+                Err(error) => return Err(BuildSystemErrors::IOError(error)),
             }
         }
         Ok(result)
+    }
+
+    #[doc = "Находит все переведнные словари в репозитории, игнорируя базовый словарь"]
+    pub fn find_all_translated_dictionaries(
+        dictionary_path: &str,
+    ) -> Result<Vec<String>, StaticDictionaryErrors> {
+        let paths = fs::read_dir(dictionary_path)?;
+        let pattern = regex::Regex::new(r"^dictionary-[a-z]{2}\.json$")?;
+        let mut result = vec![];
+        for file in paths {
+            match file {
+                Ok(path) => {
+                    let filename = path.file_name().into_string().unwrap();
+                    if pattern.is_match(&filename) {
+                        result.push(filename);
+                    }
+                }
+                Err(error) => return Err(StaticDictionaryErrors::IOError(error)),
+            }
+        }
+        return Ok(result);
     }
 }
 
 #[doc = "Модули и утилиты для сборки итоговых словарей"]
 pub mod build_system {
-    
+
     #[doc = "Интеграция с фреймворком i18next"]
     pub mod i18next_integration {
         use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
         use crate::errors::errors::BuildSystemErrors;
-        use crate::file_system::{check_dictionary_exists, find_all_dictionaries_in_repository};
+        use crate::file_system::find_all_translated_dictionaries;
+        use crate::parser::get_dictionary_language;
         use crate::static_translate::parse_translated_dictionary;
-        use std::fmt::format;
         use std::fs;
         use std::sync::{Arc, Mutex};
 
         #[doc = "Функция для сборки словарей из репозитория в итоговые словари для i18next"]
-        pub fn build_for_i18next(dictionary_dir: &str, output_directory: &str, languages: Option<Vec<String>>) -> Result<(), BuildSystemErrors> {
-            match languages {
-                Some(languages) => {
-                    languages
-                        .par_iter()
-                        .try_for_each(|language| -> Result<(), BuildSystemErrors>{
-                            let dictionary_content = parse_translated_dictionary(dictionary_dir, language)?;
-                            println!("{:?}", dictionary_content);
-                            fs::create_dir_all(format!("{}/{}", output_directory, language))?;
-                            let build_dictionary = fs::File::create_new(format!("{}/{}/translation.json", output_directory, language))?;
-                            let json_content = Arc::new(Mutex::new(serde_json::json!({})));
-                            
-                            dictionary_content
-                                .par_iter()
-                                .try_for_each(|word| -> Result<(), BuildSystemErrors> {
-                                    let mut json_object = json_content.lock().unwrap();
-                                    json_object[&word.tag] = word.word.replace("\"", "").clone().into();
-                                    Ok(())
-                                })?;
-
-                            serde_json::to_writer_pretty(&build_dictionary, &*json_content.lock().unwrap())?;
-                            Ok(())
-                        })?
-                }
+        pub fn build_for_i18next(
+            dictionary_dir: &str,
+            output_directory: &str,
+            languages: Option<Vec<String>>,
+        ) -> Result<(), BuildSystemErrors> {
+            let languages = match languages {
+                Some(langs) => langs,
                 None => {
-                    let dictionaries = find_all_dictionaries_in_repository(dictionary_dir)?;
-                    todo!()
-                } 
-            }
+                    let dictionaries = find_all_translated_dictionaries(dictionary_dir)?;
+                    dictionaries
+                        .par_iter()
+                        .map(|dictionary| get_dictionary_language(&dictionary).unwrap())
+                        .collect()
+                }
+            };
+            languages
+                .par_iter()
+                .try_for_each(|language| -> Result<(), BuildSystemErrors> {
+                    let dictionary_content = parse_translated_dictionary(dictionary_dir, language)?;
+                    println!("{:?}", dictionary_content);
+                    fs::create_dir_all(format!("{}/{}", output_directory, language))?;
+                    let build_dictionary = fs::File::create_new(format!(
+                        "{}/{}/translation.json",
+                        output_directory, language
+                    ))?;
+                    let json_content = Arc::new(Mutex::new(serde_json::json!({})));
+
+                    dictionary_content.par_iter().try_for_each(
+                        |word| -> Result<(), BuildSystemErrors> {
+                            let mut json_object = json_content.lock().unwrap();
+                            json_object[&word.tag] = word.word.replace("\"", "").clone().into();
+                            Ok(())
+                        },
+                    )?;
+
+                    serde_json::to_writer_pretty(
+                        &build_dictionary,
+                        &*json_content.lock().unwrap(),
+                    )?;
+                    Ok(())
+                })?;
             Ok(())
         }
     }
