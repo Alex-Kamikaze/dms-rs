@@ -315,6 +315,49 @@ pub mod parser {
             })
             .collect::<Vec<Word>>())
     }
+
+    #[doc = "Типы данных в парсере"]
+    mod types {
+        use serde::{Deserialize, Serialize};
+
+        use crate::errors::errors::BuildSystemErrors;
+
+
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        #[doc = "Конфиг для настройки параметров парсера"]
+        pub struct ConfigFileParameters {
+            /// Директория проекта, в котором нужно сканировать файлы
+            #[serde(rename = "base")]
+            pub base_directory: String,
+            /// Список путей, которые нужно анализировать
+            #[serde(rename = "include")]
+            pub include_files: Vec<String>,
+            /// Список путей, которые нужно игнорировать
+            #[serde(rename = "exclude")]
+            pub exclude_files: Vec<String>
+        }
+
+        impl ConfigFileParameters {
+            #[doc = "Считывает файл конфига"]
+            pub fn new(base_directory: String, include_files: Vec<String>, exclude_files: Vec<String>) -> ConfigFileParameters {
+                ConfigFileParameters {
+                    base_directory,
+                    include_files,
+                    exclude_files
+                }
+            }
+
+            #[doc = "Парсинг конфиг-файла в структуру"]
+            pub fn from_json(json_content: &str) -> Result<ConfigFileParameters, serde_json::Error> {
+                serde_json::from_str(json_content)
+            }
+
+            #[doc = "Превращает структуру в JSON"]
+            pub fn into_json(&self) -> Result<String, serde_json::Error> {
+                serde_json::to_string(&self)
+            }
+        }
+    }
 }
 
 #[doc = "Функционал для генерации и парсинга static-словарей"]

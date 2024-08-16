@@ -20,6 +20,8 @@ pub mod cli_args {
         #[clap(subcommand)]
         /// Собрать из репозитория словарей файлы в другой формат для проекта
         Build(FrameworkType),
+        /// Просканировать файлы в проекте для добавления фраз в базовый словарь
+        Scan(ScanningArguments)
     }
 
     #[derive(Debug, Subcommand)]
@@ -111,5 +113,12 @@ pub mod cli_args {
         pub output_directory: String,
         /// По умолчанию, утилита будет собирать все словари, если нужно обновить какой-то конкретный, то можно указать их список при сборке
         pub languages: Option<Vec<String>>,
+    }
+
+    #[derive(Debug, Clone, Args)]
+    #[doc = "Аргументы для сканирования файлов в проекте"]
+    pub struct ScanningArguments {
+       /// Путь до конфигурационного файла
+       pub config_path: String 
     }
 }

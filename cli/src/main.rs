@@ -105,6 +105,9 @@ async fn main() -> Result<(), reqwest::Error> {
                 }
             }
         },
+        Scan(args) => {
+            println!("WIP, будет доступно в 0.4")
+        }
     }
     Ok(())
 }
