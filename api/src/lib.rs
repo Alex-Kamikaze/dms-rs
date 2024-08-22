@@ -317,10 +317,10 @@ pub mod parser {
     }
 
     #[doc = "Типы данных в парсере"]
-    mod types {
-        use serde::{Deserialize, Serialize};
+    pub mod types {
+        use std::collections::HashMap;
 
-        use crate::errors::errors::BuildSystemErrors;
+        use serde::{Deserialize, Serialize};
 
 
         #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -329,23 +329,45 @@ pub mod parser {
             /// Директория проекта, в котором нужно сканировать файлы
             #[serde(rename = "base")]
             pub base_directory: String,
-            /// Список путей, которые нужно анализировать
-            #[serde(rename = "include")]
-            pub include_files: Vec<String>,
             /// Список путей, которые нужно игнорировать
             #[serde(rename = "exclude")]
-            pub exclude_files: Vec<String>
+            pub exclude_files: Vec<String>,
+            /// Репозиторий словарей
+            #[serde(rename = "dictionary_repo")]
+            pub dictionary_repo: String,
+            /// Директория, куда будут собираться итоговые словари
+            #[serde(rename = "output_dir")]
+            pub output_dir: String,
+            /// Конфигурации для языков
+            #[serde(rename = "include")]
+            pub languages_configurations: Vec<HashMap<String, LanguageConfiguration>>
+        }
+
+        #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+        #[doc = "Настройки парсинга: настройки для каждого конкретного языка, файлы которого будут парсится"]
+        pub struct LanguageConfiguration {
+            /// Расширения файлов, которые нужно проверять для конкретного языка
+            #[serde(rename = "ext")]
+            pub file_extensions: Vec<String>,
+            /// Начало строки
+            #[serde(rename = "regexp-start")]
+            pub string_start: Vec<String>,
+            /// Конец строки
+            #[serde(rename = "regexp-end")]
+            pub string_end: Vec<String>,
         }
 
         impl ConfigFileParameters {
-            #[doc = "Считывает файл конфига"]
-            pub fn new(base_directory: String, include_files: Vec<String>, exclude_files: Vec<String>) -> ConfigFileParameters {
+            #[doc = "Конструктор"]
+            pub fn new(base_directory: String, exclude_files: Vec<String>, dictionary_dir: String, output_dir: String, language_configurations: Vec<HashMap<String, LanguageConfiguration>>) -> ConfigFileParameters {
                 ConfigFileParameters {
                     base_directory,
-                    include_files,
-                    exclude_files
-                }
+                    exclude_files,
+                    dictionary_repo: dictionary_dir,
+                    output_dir,
+                    languages_configurations: language_configurations
             }
+        }
 
             #[doc = "Парсинг конфиг-файла в структуру"]
             pub fn from_json(json_content: &str) -> Result<ConfigFileParameters, serde_json::Error> {
@@ -560,7 +582,7 @@ pub mod file_system {
 
     use regex;
 
-    use crate::errors::errors::{BuildSystemErrors, StaticDictionaryErrors};
+    use crate::{errors::errors::{BuildSystemErrors, StaticDictionaryErrors}, parser::types::ConfigFileParameters};
 
     #[doc = "Инициализирует новый репозиторий словарей"]
     pub fn init_new_dictionary_system(
@@ -638,6 +660,16 @@ pub mod file_system {
             }
         }
         return Ok(result);
+    }
+
+    #[doc = "Считывает и парсит конфиг. Если путь до конфига не передан - пытается найти его в cwd"]
+    pub fn parse_config_file(config_path: &str) -> Result<ConfigFileParameters, StaticDictionaryErrors> {
+        let file_content = fs::read_to_string(config_path)?;
+        let config_parsed = ConfigFileParameters::from_json(&file_content);
+        match config_parsed {
+            Ok(conf) => { return Ok(conf)}
+            Err(err) => { println!("{:?}", err); return Err(StaticDictionaryErrors::JSONParsingError(err)) }
+        }
     }
 }
 

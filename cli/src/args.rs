@@ -3,7 +3,7 @@ pub mod cli_args {
     use clap::{builder::Str, Args, Parser, Subcommand};
 
     #[derive(Parser, Debug)]
-    #[clap(version = "0.2 Experimental", about = "Утилита для управления репозиторием JSON-словарей и переводом в ручном или автоматическом режиме", long_about = None)]
+    #[clap(version = "0.3.1 Experimental", about = "Утилита для управления репозиторием JSON-словарей и переводом в ручном или автоматическом режиме", long_about = None)]
     #[doc = "Парсер CLI-аргументов"]
     pub struct TranslatorCli {
         #[clap(subcommand)]
@@ -119,6 +119,6 @@ pub mod cli_args {
     #[doc = "Аргументы для сканирования файлов в проекте"]
     pub struct ScanningArguments {
        /// Путь до конфигурационного файла
-       pub config_path: String 
+       pub config_path: Option<String> 
     }
 }
