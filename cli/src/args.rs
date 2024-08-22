@@ -3,7 +3,7 @@ pub mod cli_args {
     use clap::{Args, Parser, Subcommand};
 
     #[derive(Parser, Debug)]
-    #[clap(version = "0.3.1 Experimental", about = "Утилита для управления репозиторием JSON-словарей и переводом в ручном или автоматическом режиме", long_about = None)]
+    #[clap(version = "0.4 Experimental", about = "Утилита для управления репозиторием JSON-словарей и переводом в ручном или автоматическом режиме", long_about = None)]
     #[doc = "Парсер CLI-аргументов"]
     pub struct TranslatorCli {
         #[clap(subcommand)]

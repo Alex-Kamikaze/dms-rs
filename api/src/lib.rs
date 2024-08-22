@@ -311,10 +311,10 @@ pub mod parser {
                 Ok(file_entry) => {
                     let exclude_patterns = exclude_files_patterns.clone();
                     let filename = file_entry.file_name().into_string().unwrap();
-                    let file_extension = get_file_extension(&filename).unwrap();
                     let include_patterns = Arc::clone(&include_files_patterns);
                     for pattern in exclude_patterns {
-                        if !pattern.is_match(&filename.clone()) {
+                        if !pattern.is_match(&filename.clone()) && !filename.starts_with(".") {
+                            let file_extension = get_file_extension(&filename).unwrap();
                             if include_patterns.lock().unwrap().contains_key(&format!(".{}", file_extension)) {
                                 let phrases = get_phrases_from_file(&format!("{}/{}", config.base_directory.clone(), filename), include_patterns.lock().unwrap().get(&format!(".{}", file_extension)).unwrap().clone())?;
                                 update_basic_dictionary(&config.dictionary_repo, phrases)?;
