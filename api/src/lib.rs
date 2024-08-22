@@ -163,14 +163,15 @@ pub mod web_api {
 #[doc = "Парсер для JSON словарей (А также некоторые фичи для preprocess)"]
 //TODO: Вынести функции, используемые только в preprocess в отдельный модуль
 pub mod parser {
-    use std::{fs, io};
+    use std::{collections::HashMap, env, fs, io::{self, BufRead}, sync::{Arc, Mutex}};
 
     use regex::Regex;
 
     use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
     use serde::de::Error;
+    use types::ConfigFileParameters;
 
-    use crate::{errors::errors::StaticDictionaryErrors, types::Word};
+    use crate::{errors::errors::StaticDictionaryErrors, file_system::get_file_extension, static_translate::update_basic_dictionary, types::Word};
 
     #[doc = "Считывает JSON из словаря"]
     pub fn read_json_dictionary(file_name: &str) -> Result<serde_json::Value, serde_json::Error> {
@@ -269,13 +270,91 @@ pub mod parser {
     pub fn generate_regex(regex_start: Vec<String>, regex_end: Vec<String>) -> Result<Regex, StaticDictionaryErrors> {
         let start_pattern = regex_start.join("|");
         let end_pattern = regex_end.join("|");
-        let pattern = format!("^({})(.*)({})$", regex::escape(&start_pattern), regex::escape(&end_pattern));
+        let pattern = format!(r#"({})"(.*?)"({})"#, regex::escape(&start_pattern), regex::escape(&end_pattern));
         Ok(Regex::new(&pattern)?)
     }
 
     #[doc = "Сканирует файлы на наличие строк для добавления в базовый словарь"]
-    pub fn scan_files_for_phrases(config_path: Option<String>) {
-        
+    pub fn scan_files_for_phrases(config_path: Option<String>) -> Result<(), StaticDictionaryErrors>{
+        let config_dir = match config_path {
+            Some(path) => path,
+            None => format!("{}/config.dms.json", env::current_dir()?.to_str().unwrap().to_owned())
+        };
+        let config_data = fs::read_to_string(config_dir)?;
+        let config = ConfigFileParameters::from_json(&config_data)?;
+        println!("Избегаемые паттерны: {:?}", config.exclude_files);
+        let exclude_files_patterns: Vec<Regex> = 
+            config.exclude_files
+                .par_iter()
+                .map(|exclude| {
+                    Regex::new(*&exclude).expect(&format!("Ошибка: неправильный паттерн {}", exclude))
+                })
+                .collect();
+        let include_files_patterns: Arc<Mutex<HashMap<String, Regex>>> = Arc::new(Mutex::new(HashMap::new()));
+        config
+            .languages_configurations
+            .par_iter()
+            .for_each(|conf| {
+                let local_patterns = Arc::clone(&include_files_patterns);
+                for (_, configurations) in conf {
+                    let pattern_start = configurations.string_start.clone();
+                    let pattern_end = configurations.string_end.clone();
+                    let pattern = generate_regex(pattern_start, pattern_end).expect("Не удалось создать паттерн");
+                    configurations.file_extensions.par_iter().for_each(|extension| { 
+                        let mut patterns = local_patterns.lock().unwrap();
+                        patterns.insert(extension.to_owned(), pattern.clone());
+                    })
+                }
+            });
+        let base_directory_containments = fs::read_dir(config.base_directory.clone())?;
+        for file in base_directory_containments {
+            match file {
+                Ok(file_entry) => {
+                    let exclude_patterns = exclude_files_patterns.clone();
+                    let filename = file_entry.file_name().into_string().unwrap();
+                    println!("Найден файл {}", filename);
+                    let file_extension = get_file_extension(&filename).unwrap();
+                    let include_patterns = Arc::clone(&include_files_patterns);
+                    for pattern in exclude_patterns {
+                        println!("Паттерн для проверки: {}", pattern);
+                        if !pattern.is_match(&filename.clone()) {
+                            println!("Проверяется файл с расширением {}", file_extension);
+                            if include_patterns.lock().unwrap().contains_key(&format!(".{}", file_extension)) {
+                                println!("Идет сканирование файла {}", filename);
+                                let phrases = get_phrases_from_file(&format!("{}/{}", config.base_directory.clone(), filename), include_patterns.lock().unwrap().get(&format!(".{}", file_extension)).unwrap().clone())?;
+                                update_basic_dictionary(&config.dictionary_repo, phrases)?;
+                                break;
+                            }
+                        }
+                    }
+                }
+                Err(err) => { 
+                    println!("{}", err);
+                    return Err(StaticDictionaryErrors::IOError(err)) 
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[doc = "Ищет в файле фразы для добавления в базовый словарь"]
+    pub fn get_phrases_from_file(filepath: &str, pattern: Regex) -> Result<Vec<String>, StaticDictionaryErrors> {
+        println!("{}", pattern);
+        let file = fs::File::open(filepath)?;
+        let reader = io::BufReader::new(file);
+        let mut results = Vec::new();
+
+        for line in reader.lines() {
+            let line = line?;
+            println!("{}", line);
+            for cap in pattern.captures_iter(&line) {
+                if let Some(matched) = cap.get(2) {
+                    println!("Найдено совпадение {}", matched.as_str().to_string()); 
+                    results.push(matched.as_str().to_string());
+                }
+            }
+        }
+        Ok(results)
     }
 
     #[doc = "Типы данных в парсере"]
@@ -348,7 +427,7 @@ pub mod parser {
 pub mod static_translate {
     use std::collections::HashMap;
     use std::fs;
-    use std::sync::{Arc, Mutex};
+    use std::{sync::{Arc, Mutex}, fs::OpenOptions};
 
     use futures::future::join_all;
     use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -362,7 +441,7 @@ pub mod static_translate {
     use crate::types::{TranslatorApi, TranslatorApis, Word};
     use crate::web_api::LibreTranslateApi;
 
-    #[doc = "Парсит список слов в Vec<Word>. Если не передан аргумент с названием языка, то будут получены слова из базового словаря"]
+    #[doc = "Парсит список слов из базового словаря в Vec<Word>"]
     pub fn parse_static_basic_dictionary(
         dictionary_dir: &str,
     ) -> Result<Vec<String>, StaticDictionaryErrors> {
@@ -533,13 +612,33 @@ pub mod static_translate {
 
         Ok(())
     }
-}
+
+    #[doc = "Добавляет новые фразы в базовый словарь"]
+    pub fn update_basic_dictionary(dictionary_dir: &str, mut words: Vec<String>) -> Result<(), StaticDictionaryErrors> {
+        let basic_dictionary = get_basic_dictionary(dictionary_dir)?;
+        let mut basic_dictionary_content = parse_static_basic_dictionary(dictionary_dir)?;
+        
+        for word in words {
+            if !basic_dictionary_content.contains(&word) {
+                basic_dictionary_content.push(word);
+            }
+        }
+        println!("{:?}", basic_dictionary_content);
+        let json_object: Value = serde_json::json!(basic_dictionary_content);
+        let file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(format!("{}/{}", dictionary_dir, basic_dictionary))?;
+        serde_json::to_writer_pretty(&file, &json_object)?;
+        Ok(())
+    }
+        
+    }
 
 #[doc = "Модуль с функциями для работы с репозиториями словарей"]
 pub mod file_system {
     use std::{
-        fs::{self, File},
-        path::Path,
+        ffi::OsStr, fs::{self, File}, path::Path
     };
 
     use regex;
@@ -633,6 +732,14 @@ pub mod file_system {
             Ok(conf) => { return Ok(conf)}
             Err(err) => { println!("{:?}", err); return Err(StaticDictionaryErrors::JSONParsingError(err)) }
         }
+    }
+
+    #[doc = "Идиоматически верно возвращает расширение файла"]
+    #[inline]
+    pub fn get_file_extension(filename: &str) -> Option<&str> {
+        Path::new(filename)
+        .extension()
+        .and_then(OsStr::to_str)
     }
 }
 

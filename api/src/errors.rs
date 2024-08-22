@@ -23,7 +23,7 @@ pub mod errors {
         AsyncError(#[from] tokio::task::JoinError),
         /// Обертка для ошибок при работе с регулярными выражениями
         #[error("Ошибка при работе с регулярными выражениями")]
-        RegexError(#[from] regex::Error),
+        RegexError(#[from] regex::Error)
     }
 
     #[derive(Error, Debug)]

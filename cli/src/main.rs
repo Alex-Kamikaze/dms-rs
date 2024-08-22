@@ -1,7 +1,10 @@
 #![allow(unused_variables)]
 
+use std::error::Error;
+
 use api::build_system::i18next_integration::build_for_i18next;
 use api::file_system::init_new_dictionary_system;
+use api::parser::scan_files_for_phrases;
 use api::static_translate::autotranslate_from_basic_dictionary;
 use api::static_translate::generate_empty_dictionaries_from_static_basic;
 use api::types::TranslatorApis;
@@ -101,7 +104,11 @@ async fn main() -> Result<(), reqwest::Error> {
             }
         },
         Scan(args) => {
-            
+            let result = scan_files_for_phrases(args.config_path);
+            match result {
+                Ok(()) => println!("Файлы успешно просканированы!"),
+                Err(err) => println!("Произошла ошибка при сканировании файлов: {:?}", err.source())
+            }
         }
     }
     Ok(())
