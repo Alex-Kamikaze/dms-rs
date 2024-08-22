@@ -282,7 +282,6 @@ pub mod parser {
         };
         let config_data = fs::read_to_string(config_dir)?;
         let config = ConfigFileParameters::from_json(&config_data)?;
-        println!("Избегаемые паттерны: {:?}", config.exclude_files);
         let exclude_files_patterns: Vec<Regex> = 
             config.exclude_files
                 .par_iter()
@@ -312,15 +311,11 @@ pub mod parser {
                 Ok(file_entry) => {
                     let exclude_patterns = exclude_files_patterns.clone();
                     let filename = file_entry.file_name().into_string().unwrap();
-                    println!("Найден файл {}", filename);
                     let file_extension = get_file_extension(&filename).unwrap();
                     let include_patterns = Arc::clone(&include_files_patterns);
                     for pattern in exclude_patterns {
-                        println!("Паттерн для проверки: {}", pattern);
                         if !pattern.is_match(&filename.clone()) {
-                            println!("Проверяется файл с расширением {}", file_extension);
                             if include_patterns.lock().unwrap().contains_key(&format!(".{}", file_extension)) {
-                                println!("Идет сканирование файла {}", filename);
                                 let phrases = get_phrases_from_file(&format!("{}/{}", config.base_directory.clone(), filename), include_patterns.lock().unwrap().get(&format!(".{}", file_extension)).unwrap().clone())?;
                                 update_basic_dictionary(&config.dictionary_repo, phrases)?;
                             }
@@ -338,17 +333,14 @@ pub mod parser {
 
     #[doc = "Ищет в файле фразы для добавления в базовый словарь"]
     pub fn get_phrases_from_file(filepath: &str, pattern: Regex) -> Result<Vec<String>, StaticDictionaryErrors> {
-        println!("{}", pattern);
         let file = fs::File::open(filepath)?;
         let reader = io::BufReader::new(file);
         let mut results = Vec::new();
 
         for line in reader.lines() {
             let line = line?;
-            println!("{}", line);
             for cap in pattern.captures_iter(&line) {
                 if let Some(matched) = cap.get(2) {
-                    println!("Найдено совпадение {}", matched.as_str().to_string()); 
                     results.push(matched.as_str().to_string());
                 }
             }
@@ -613,7 +605,7 @@ pub mod static_translate {
     }
 
     #[doc = "Добавляет новые фразы в базовый словарь"]
-    pub fn update_basic_dictionary(dictionary_dir: &str, mut words: Vec<String>) -> Result<(), StaticDictionaryErrors> {
+    pub fn update_basic_dictionary(dictionary_dir: &str, words: Vec<String>) -> Result<(), StaticDictionaryErrors> {
         let basic_dictionary = get_basic_dictionary(dictionary_dir)?;
         let mut basic_dictionary_content = parse_static_basic_dictionary(dictionary_dir)?;
         
@@ -622,7 +614,6 @@ pub mod static_translate {
                 basic_dictionary_content.push(word);
             }
         }
-        println!("{:?}", basic_dictionary_content);
         let json_object: Value = serde_json::json!(basic_dictionary_content);
         let file = OpenOptions::new()
             .write(true)
