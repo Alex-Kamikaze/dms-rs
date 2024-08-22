@@ -1,6 +1,6 @@
 pub mod cli_args {
     use api::types::ApiArgs;
-    use clap::{builder::Str, Args, Parser, Subcommand};
+    use clap::{Args, Parser, Subcommand};
 
     #[derive(Parser, Debug)]
     #[clap(version = "0.3.1 Experimental", about = "Утилита для управления репозиторием JSON-словарей и переводом в ручном или автоматическом режиме", long_about = None)]
@@ -56,26 +56,6 @@ pub mod cli_args {
     pub enum ApiVariants {
         /// Перевод с использованием LibreTranslate API
         Libretranslate(LibreTranslateArgs),
-
-        /// Перевод с использованиеим DeepL API
-        Deepl(AutoTranslationArgs),
-    }
-
-    #[derive(Debug, Args, Clone)]
-    #[doc = "Аргументы для команды translate auto"]
-    #[deprecated(
-        since = "0.2.0",
-        note = "Используйте разные реализации структур аргументов (LibreTranslateArgs)"
-    )]
-    // TODO: Заменить на разные аргументы для разных реализаций API
-    pub struct AutoTranslationArgs {
-        /// Директория репозитория словарей
-        pub dictionaries_path: String,
-        /// Языки для перевода
-        pub languages: Vec<String>,
-        /// API ключ для тех, кому он требуется
-        #[arg(last(true))]
-        pub api_key: Option<String>,
     }
 
     #[derive(Debug, Args, Clone)]

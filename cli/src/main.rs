@@ -6,7 +6,6 @@ use api::static_translate::autotranslate_from_basic_dictionary;
 use api::static_translate::generate_empty_dictionaries_from_static_basic;
 use api::types::TranslatorApis;
 use clap::Parser;
-use api::file_system::parse_config_file;
 
 mod args;
 use crate::CliSubcommands::*;
@@ -63,7 +62,6 @@ async fn main() -> Result<(), reqwest::Error> {
                                 }
                             }
                         }
-                        _ => println!("Пока не реализовано!"),
                     }
                 }
             }
@@ -103,7 +101,7 @@ async fn main() -> Result<(), reqwest::Error> {
             }
         },
         Scan(args) => {
-            println!("WIP, будет доступно в 0.4")
+            
         }
     }
     Ok(())

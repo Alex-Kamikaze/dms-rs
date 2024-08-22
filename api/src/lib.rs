@@ -163,18 +163,12 @@ pub mod web_api {
 #[doc = "Парсер для JSON словарей (А также некоторые фичи для preprocess)"]
 //TODO: Вынести функции, используемые только в preprocess в отдельный модуль
 pub mod parser {
-    use std::{
-        fs,
-        io::{self, Write},
-        sync::Arc,
-        thread,
-    };
+    use std::{fs, io};
 
     use regex::Regex;
 
     use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
     use serde::de::Error;
-    use serde_json::json;
 
     use crate::{errors::errors::StaticDictionaryErrors, types::Word};
 
@@ -233,52 +227,6 @@ pub mod parser {
         Err(StaticDictionaryErrors::BasicDictionaryNotFound)
     }
 
-    #[doc = "(Только для preprocess) Создает пустые словари на основе базового словаря"]
-    #[deprecated(
-        since = "0.2.0",
-        note = "Структура словарей для препроцессинга изменена, и используется старый способ парарллелилзации"
-    )]
-    pub fn generate_empty_dictionaries(
-        dictionary_path: String,
-        languages: Vec<String>,
-    ) -> Result<(), StaticDictionaryErrors> {
-        let basic_dictionary_path = get_basic_dictionary(&dictionary_path)?;
-        let mut handlers = vec![];
-        let dictionary_path_arc = Arc::new(dictionary_path);
-        for language in languages {
-            let dictionary_path_clone = Arc::clone(&dictionary_path_arc);
-            let path_clone = basic_dictionary_path.clone();
-            let handler = thread::spawn(move || {
-                let tags = get_tags_from_dictionary(read_json_dictionary(
-                    &(format!("{}/", *dictionary_path_clone.to_owned()) + &path_clone),
-                )?)
-                .unwrap();
-                let mut json_object = serde_json::json!({});
-                for tag in tags {
-                    json_object[&tag] = json!({
-                        "word": ""
-                    });
-                }
-                let mut new_dictionary = fs::File::create_new(format!(
-                    "{}/dictionary-{}.json",
-                    *dictionary_path_clone.to_owned(),
-                    language
-                ))
-                .unwrap();
-                new_dictionary.write_all(
-                    serde_json::to_string_pretty(&json_object)
-                        .unwrap()
-                        .as_bytes(),
-                )
-            });
-            handlers.push(handler);
-        }
-        for handle in handlers {
-            let _ = handle.join().unwrap();
-        }
-        Ok(())
-    }
-
     #[doc = "Возвращает язык файла словаря"]
     pub fn get_dictionary_language(dictionary_name: &str) -> Result<String, ()> {
         let pattern = Regex::new(r"^dictionary-(.+?)(?:\.base)?\.json$").unwrap();
@@ -314,6 +262,20 @@ pub mod parser {
                 )
             })
             .collect::<Vec<Word>>())
+    }
+
+    #[doc = "Составляет регулярное выражение для получения всех фраз из файла для базовго словаря"]
+    #[inline]
+    pub fn generate_regex(regex_start: Vec<String>, regex_end: Vec<String>) -> Result<Regex, StaticDictionaryErrors> {
+        let start_pattern = regex_start.join("|");
+        let end_pattern = regex_end.join("|");
+        let pattern = format!("^({})(.*)({})$", regex::escape(&start_pattern), regex::escape(&end_pattern));
+        Ok(Regex::new(&pattern)?)
+    }
+
+    #[doc = "Сканирует файлы на наличие строк для добавления в базовый словарь"]
+    pub fn scan_files_for_phrases(config_path: Option<String>) {
+        
     }
 
     #[doc = "Типы данных в парсере"]
@@ -663,6 +625,7 @@ pub mod file_system {
     }
 
     #[doc = "Считывает и парсит конфиг. Если путь до конфига не передан - пытается найти его в cwd"]
+    #[inline]
     pub fn parse_config_file(config_path: &str) -> Result<ConfigFileParameters, StaticDictionaryErrors> {
         let file_content = fs::read_to_string(config_path)?;
         let config_parsed = ConfigFileParameters::from_json(&file_content);
