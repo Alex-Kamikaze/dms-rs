@@ -323,7 +323,6 @@ pub mod parser {
                                 println!("Идет сканирование файла {}", filename);
                                 let phrases = get_phrases_from_file(&format!("{}/{}", config.base_directory.clone(), filename), include_patterns.lock().unwrap().get(&format!(".{}", file_extension)).unwrap().clone())?;
                                 update_basic_dictionary(&config.dictionary_repo, phrases)?;
-                                break;
                             }
                         }
                     }
