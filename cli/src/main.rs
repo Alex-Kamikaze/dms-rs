@@ -40,7 +40,7 @@ async fn main() -> Result<(), reqwest::Error> {
                         api::errors::errors::StaticDictionaryErrors::APIError(_)=>{println!("Ошибка: Ошибка при обращении к API!")},
                         api::errors::errors::StaticDictionaryErrors::IOError(_)=>{println!("Ошибка: Не удалось создать файлы!")},
                         api::errors::errors::StaticDictionaryErrors::AsyncError(_) => todo!(),
-                        api::errors::errors::StaticDictionaryErrors::RegexError(_) => todo!() 
+                        api::errors::errors::StaticDictionaryErrors::RegexError(_) => todo!()
                     }
                     }
                 }
@@ -82,7 +82,7 @@ async fn main() -> Result<(), reqwest::Error> {
                     println!("Произошла ошибка при инициализации нового репозитория словарей. Возможно, у вас уже создан репозиторий в директории, где вы пытаетесь его создать")
                 }
                 api::errors::errors::StaticDictionaryErrors::AsyncError(_) => todo!(),
-                api::errors::errors::StaticDictionaryErrors::RegexError(_) => todo!()
+                api::errors::errors::StaticDictionaryErrors::RegexError(_) => todo!(),
             },
         },
 
@@ -107,7 +107,10 @@ async fn main() -> Result<(), reqwest::Error> {
             let result = scan_files_for_phrases(args.config_path);
             match result {
                 Ok(()) => println!("Файлы успешно просканированы!"),
-                Err(err) => println!("Произошла ошибка при сканировании файлов: {:?}", err.source())
+                Err(err) => println!(
+                    "Произошла ошибка при сканировании файлов: {:?}",
+                    err.source()
+                ),
             }
         }
     }

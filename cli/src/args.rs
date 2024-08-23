@@ -21,7 +21,7 @@ pub mod cli_args {
         /// Собрать из репозитория словарей файлы в другой формат для проекта
         Build(FrameworkType),
         /// Просканировать файлы в проекте для добавления фраз в базовый словарь
-        Scan(ScanningArguments)
+        Scan(ScanningArguments),
     }
 
     #[derive(Debug, Subcommand)]
@@ -98,7 +98,7 @@ pub mod cli_args {
     #[derive(Debug, Clone, Args)]
     #[doc = "Аргументы для сканирования файлов в проекте"]
     pub struct ScanningArguments {
-       /// Путь до конфигурационного файла
-       pub config_path: Option<String> 
+        /// Путь до конфигурационного файла
+        pub config_path: Option<String>,
     }
 }
