@@ -440,6 +440,9 @@ pub mod parser {
             /// Конфигурации для языков
             #[serde(rename = "include")]
             pub languages_configurations: Vec<HashMap<String, LanguageConfiguration>>,
+            /// Фразы, которые не должны переводиться автоматически, только в ручную
+            #[serde(rename = "manual_translate")]
+            pub manual_translate_words: Vec<String>
         }
 
         #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
