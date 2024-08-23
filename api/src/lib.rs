@@ -460,22 +460,6 @@ pub mod parser {
         }
 
         impl ConfigFileParameters {
-            #[doc = "Конструктор"]
-            pub fn new(
-                base_directory: String,
-                exclude_files: Vec<String>,
-                dictionary_dir: String,
-                output_dir: String,
-                language_configurations: Vec<HashMap<String, LanguageConfiguration>>,
-            ) -> ConfigFileParameters {
-                ConfigFileParameters {
-                    base_directory,
-                    exclude_files,
-                    dictionary_repo: dictionary_dir,
-                    output_dir,
-                    languages_configurations: language_configurations,
-                }
-            }
 
             #[doc = "Парсинг конфиг-файла в структуру"]
             pub fn from_json(
@@ -704,6 +688,21 @@ pub mod static_translate {
             .truncate(true)
             .open(format!("{}/{}", dictionary_dir, basic_dictionary))?;
         serde_json::to_writer_pretty(&file, &json_object)?;
+        Ok(())
+    }
+
+    #[doc = "Управляет синхронизацией фраз из конфига в базовый словарь"]
+    pub fn sync_manual_phrases(manual_phrases: Vec<String>, dictionary_dir: &str) -> Result<(), StaticDictionaryErrors> {
+        let basic_dictionary_content: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(parse_static_basic_dictionary(dictionary_dir)?));
+        manual_phrases
+            .par_iter()
+            .for_each(|phrase| {
+                let dictionary = Arc::clone(&basic_dictionary_content);
+                let mut mut_dictionary = dictionary.lock().expect("Произошла ошибка при синхронизации словарей");
+                if !mut_dictionary.contains(phrase) {
+                    mut_dictionary.push(phrase.to_owned());
+                }
+            });
         Ok(())
     }
 }
