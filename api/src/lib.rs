@@ -177,7 +177,7 @@ pub mod parser {
     use types::ConfigFileParameters;
 
     use crate::{
-        errors::errors::StaticDictionaryErrors, file_system::get_file_extension,
+        errors::errors::StaticDictionaryErrors, file_system::{get_file_extension, parse_config},
         static_translate::update_basic_dictionary, types::Word,
     };
 
@@ -293,15 +293,7 @@ pub mod parser {
     pub fn scan_files_for_phrases(
         config_path: Option<String>,
     ) -> Result<(), StaticDictionaryErrors> {
-        let config_dir = match config_path {
-            Some(path) => path,
-            None => format!(
-                "{}/config.dms.json",
-                env::current_dir()?.to_str().unwrap().to_owned()
-            ),
-        };
-        let config_data = fs::read_to_string(config_dir)?;
-        let config = ConfigFileParameters::from_json(&config_data)?;
+        let config = parse_config(config_path)?;
         println!("{:?}", config.exclude_files);
         let exclude_files_patterns: Vec<Regex> = config
             .exclude_files
@@ -713,6 +705,7 @@ pub mod file_system {
         ffi::OsStr,
         fs::{self, File},
         path::Path,
+        env
     };
 
     use regex;
@@ -820,6 +813,20 @@ pub mod file_system {
     #[inline]
     pub fn get_file_extension(filename: &str) -> Option<&str> {
         Path::new(filename).extension().and_then(OsStr::to_str)
+    }
+
+    #[doc = "Парсинг конфига"]
+    pub fn parse_config(config_path: Option<String>) -> Result<ConfigFileParameters, StaticDictionaryErrors> {
+        let config_dir = match config_path {
+            Some(path) => path,
+            None => format!(
+                "{}/config.dms.json",
+                env::current_dir()?.to_str().unwrap().to_owned()
+            ),
+        };
+        let config_data = fs::read_to_string(config_dir)?;
+        let config = ConfigFileParameters::from_json(&config_data)?;
+        Ok(config)
     }
 }
 
